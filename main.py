@@ -31,8 +31,10 @@ sslify = SSLify(app)
 app.secret_key = os.getenv('SECRET_KEY')
 load_dotenv()
 oauth = OAuth(app)
-sslify.ssl_cert = 'D:\Program Files\Jarvis\certs\myCA.pem'
-sslify.ssl_key = 'D:\Program Files\Jarvis\certs\myCA.key'
+
+passphrase = os.getenv('SSL_PASSPHRASE')
+sslify.ssl_cert = '.\certs\myCA.pem'
+sslify.ssl_key = '.\certs\myCA.key'
 
 
 # ============================== DB CONNECTION ==============================
@@ -1531,7 +1533,8 @@ class Receita:
         receitas = cursor.fetchall()
         cursor.close()
         return [cls(**receita) for receita in receitas]
-    
+
+
 # ============================== CHAMADA DO APP ==============================
 if __name__ == '__main__':
     # Configurações de segurança adicionais
@@ -1544,7 +1547,8 @@ if __name__ == '__main__':
     ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
     ssl_context.load_cert_chain(
         certfile=os.path.join(app.root_path, 'certs', 'myCA.pem'),
-        keyfile=os.path.join(app.root_path, 'certs', 'myCA.key')
+        keyfile=os.path.join(app.root_path, 'certs', 'myCA.key'),
+        password=passphrase.encode()
     )
     
     app.run(
