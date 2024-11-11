@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='img/favicon.png') }}">
+    <title>Profile - Jarvis Advisor</title>
+</head>
+<body>
+            {% extends 'layout.html' %}
+
+            {% block title %}Alterar {% endblock %}
+            
+            {% block content %}
+            <h2>Alterar Senha</h2>
+            <div class="change-password-container" >
+                <form class="change-password-form" action="{{ url_for('alterar_senha') }}" method="post" autocomplete="off">
+                  <label for="current_password">Senha atual:</label>
+                  <input type="password" id="current_password" name="current_password">
+                  
+                  <label for="new_password">Nova senha:</label>
+                  <input type="password" id="new_password" name="new_password">
+                  
+                  <label for="confirm_password">Confirmar senha:</label>
+                  <input type="password" id="confirm_password" name="confirm_password">
+                  
+                  <button type="submit">Alterar senha</button>
+                </form>
+              </div>
+              {% if msg %}
+              <p style="color: red">{{ msg }}</p>
+            {% endif %}
+        {% endblock %}
+        </div>
+</body>
+</html>

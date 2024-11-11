@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.mask/1.14.16/jquery.mask.min.js"></script>
+    <script type="text/javascript" src="{{ url_for('static', filename='js/scripts.js') }}"></script>
+    <title>Profile - Jarvis Advisor</title>
+</head>
+<body>
+    {% extends 'layout.html' %}
+    {% block title %}Alterar Dados{% endblock %}
+    {% block content %}
+    <section class="alterar-dados">
+        <div class="container">
+            <div class="content">
+                <h2>Alterar Dados</h2>
+                <p>Por favor preencha os campos abaixo!</p>
+                <div class="change-data-container">
+                    <form class="change-data-form" action="{{ url_for('alterar_dados') }}" method="post" autocomplete="off">
+                        <div class="input-fields">
+                            <div class="input-field-container">
+                                <label for="nome">Nome</label>
+                                <input type="text" id="nome" name="nome" placeholder="Digite seu Nome" class="input-field" value="{{ account.nome_user }}">
+                                <div class="error" id="nome-error"></div>
+                            </div>
+                            <div class="input-field-container">
+                                <label for="email">E-mail</label>
+                                <input type="email" id="email" name="email" placeholder="Digite seu E-mail" class="input-field" value="{{ account.email_user }}">
+                                <div class="error" id="email-error"></div>
+                            </div>
+                            <div class="input-field-container">
+                                <label for="telefone">Telefone para contato</label>
+                                <input type="text" id="telefone" name="telefone" class="input-field" value="{{ account.telefone_user }}" placeholder="Digite seu Telefone">
+                                <div class="error" id="telefone-error"></div>
+                            </div>
+                        </div>
+                        <div class="msg">{{ msg }}</div>
+                        <div class="button-container">
+                            <input type="submit" class="button" value="Alterar Dados">
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </section>
+            
+    {% endblock %}
+    {% if popup %}
+    <script>
+        alert("Dados alterados com sucesso!");
+        window.location.href = "{{ url_for('profile') }}";
+    </script>
+    {% endif %}
+</body>
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.mask/1.14.16/jquery.mask.min.js"></script>
+<script>
+  $(document).ready(function() {
+      $('#telefone').mask('(00) 00000-0000');
+  });
+</script>
+</html>

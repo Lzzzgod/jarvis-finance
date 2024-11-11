@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HOME - Jarvis Advisor</title>
+</head>
+    <body>
+        {% extends 'layout.html' %}
+
+        {% block title %}{% endblock %}
+
+        {% block content %}
+            <section class="hero">
+                <div class="container"> 
+                    <div class="content">
+                        <h2>Meu Dinheiro</h2>
+                        <p>Tome o controle da sua vida financeira!</p>
+                        <div class="balance-card">
+                          <div>
+                            <h3>👋 Olá, {{ username }}!</h3>
+                            <p>Saldo Geral: <span class="balance">R$ {{ saldo }}</span></p>
+                          </div>
+                          <i class="fas fa-ellipsis-v"></i>
+                        </div>
+                       <!-- Botões para abrir os modais -->
+                        <div class="actions">
+                          <button id="receitaBtn" class="action-card-rec">
+                            <p>Adicionar Receita</p>
+                          </button>
+                          <button id="despesaBtn" class="action-card-desp">
+                            <p>Adicionar Despesa</p>
+                          </button>
+                        </div>                        
+                        <!-- Modal de receita -->
+                        <div id="receitaModal" class="modal">
+                          <div class="modal-content">
+                            <span class="close">&times;</span>
+                            <h2>Adicionar Receita</h2>
+                            <form id="receitaForm" action="{{ url_for('adicionar_receita') }}" method="post">
+                              <div class="form-group">
+                                <label for="descricao_rec">Descrição</label>
+                                <input type="text" id="descricao_rec" name="descricao_rec" required>
+                              </div>
+                              <div class="form-group">
+                                <label for="valor_rec">Valor</label>
+                                <input type="number" id="valor_rec" name="valor_rec" required>
+                              </div>
+                              <div class="form-group">
+                                <label for="data_rec">Data</label>
+                                <input type="date" id="data_rec" name="data_rec" required>
+                              </div>
+                              <div class="form-group">
+                                <label for="categoria">Categoria</label>
+                                <select id="categoria" name="categoria" required>
+                                  <option value="">Selecione uma categoria</option>
+                                  <option value="Salário">Salário</option>
+                                  <option value="Investimentos">Investimentos</option>
+                                  <option value="Freelance">Freelance</option>
+                                  <option value="Outros">Outros</option>
+                                </select>
+                              </div>
+                              <button type="submit" class="btn">Adicionar Receita</button>
+                            </form>
+                          </div>
+                        </div>
+                        <!-- Modal de despesa -->
+                        <div id="despesaModal" class="modal">
+                          <div class="modal-content">
+                            <span class="close">&times;</span>
+                            <h2>Adicionar Despesa</h2>
+                            <form id="despesaForm" action="{{ url_for('adicionar_despesa') }}" method="post">
+                              <div class="form-group">
+                                <label for="descricao_des">Descrição</label>
+                                <input type="text" id="descricao_des" name="descricao_des" required>
+                              </div>
+                              <div class="form-group">
+                                <label for="valor_des">Valor</label>
+                                <input type="number" id="valor_des" name="valor_des" required>
+                              </div>
+                              <div class="form-group">
+                                <label for="data_des">Data</label>
+                                <input type="date" id="data_des" name="data_des" required>
+                              </div>
+                              <div class="form-group">
+                                <label for="categoria">Categoria</label>
+                                <select id="categoria" name="categoria" required>
+                                  <option value="">Selecione uma categoria</option>
+                                  <option value="Alimentação">Alimentação</option>
+                                  <option value="Transporte">Transporte</option>
+                                  <option value="Moradia">Moradia</option>
+                                  <option value="Saúde">Saúde</option>
+                                  <option value="Educação">Educação</option>
+                                  <option value="Lazer">Lazer</option>
+                                  <option value="Outros">Outros</option>
+                                </select>
+                              </div>
+                              <button type="submit" class="btn">Adicionar Despesa</button>
+                            </form>
+                          </div>
+                        </div>
+                        <div class="jarvis-iq">
+                          <h3> Jarvis IQ <span>IA</span></h3>
+                          <p>Para otimizar a sua conta de luz é recomendado que o ar-condicionado esteja entre as temperaturas 22 ºC a 25 ºC para que ele trabalhe com uma maior eficiência energética</p>
+                          <hr/>
+                          <p>Uma lista de compras pode ajudar a economizar dinheiro e tempo</p>
+                        </div>
+                        <div class="chat-box">
+                          <i class="fas fa-question-circle"></i>
+                          <input placeholder='Pergunte ao JARVIS: Ex. Exiba o gasto obtido pela etiqueta "Conta de Luz"?' type="text"/>
+                       <button>
+                        <i class="fas fa-check">
+                        </i>
+                       </button>
+                      </div>
+                     </div>
+                </div>
+            </section> 
+            <script type="text/javascript" src="{{ url_for('static', filename='js/hmscripts.js') }}"></script>
+        {% endblock %}
+    </body>
+</html>

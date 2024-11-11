@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jarvis Advisor - Controle Sua Vida Financeira</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='indexstyle.css') }}">
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='img/favicon.png') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <div class="logo">
+                <a href="{{ url_for('index') }}">
+                    <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Jarvis Advisor"></a>
+                    <h1 class="website-title">Jarvis Advisor</h1>
+            </div>
+            <nav class="nav">
+                <ul>
+                    <li><a href="#features">Recursos</a></li>
+                    <li><a href="#testimonials">Depoimentos</a></li>
+                    <li><a href="#pricing">Preços</a></li>
+                    <li><a href="#contact">Contato</a></li>
+                </ul>
+            </nav>
+            <a href="{{ url_for('login') }}" class="button login-button">Login</a>
+        </div>
+    </header>
+
+    <section class="hero">
+        <div class="container">
+            <div class="hero-content">
+                <h1>Controle Sua Vida Financeira</h1>
+                <p>Conecte suas contas e adicione suas despesas para receber dicas valiosas para o seu bolso. Gerencie seu orçamento, economize mais e invista com inteligência.</p>
+                <a href="#signup" class="button primary-button">Comece Agora</a>
+            </div>
+            <div class="hero-image">
+                <img src="{{ url_for('static', filename='img/landing1.svg') }}" alt="Controle Financeiro">
+            </div>
+        </div>
+    </section>
+
+    <section id="features" class="features">
+        <div class="container">
+            <h2>Recursos</h2>
+            <div class="feature-list">
+                <div class="feature-item">
+                    <img src="{{ url_for('static', filename='img/landing1-personal.svg') }}" alt="Orçamento Pessoal">
+                    <h3>Orçamento Pessoal</h3>
+                    <p>Organize seus gastos e crie um orçamento personalizado de forma simples e intuitiva.</p>
+                </div>
+                <div class="feature-item">
+                    <img src="{{ url_for('static', filename='img/landing2-alerts.svg') }}" alt="Alertas Inteligentes">
+                    <h3>Alertas Inteligentes</h3>
+                    <p>Receba notificações quando estiver próximo de exceder seu orçamento ou quando uma despesa recorrente for identificada.</p>
+                </div>
+                <div class="feature-item">
+                    <img src="{{ url_for('static', filename='img/landing3-report.svg') }}" alt="Relatórios Detalhados">
+                    <h3>Relatórios Detalhados</h3>
+                    <p>Visualize suas finanças com gráficos detalhados e relatórios personalizados.</p>
+                </div>
+                <div class="feature-item">
+                    <img src="{{ url_for('static', filename='img/landing4-mfa.svg') }}" alt="Segurança">
+                    <h3>Segurança dos Dados</h3>
+                    <p>Tenha a segurança de seus dados protegidos por criptografia avançada e autenticação robusta.</p>
+
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="testimonials" class="testimonials">
+        <div class="container">
+            <h2>Depoimentos</h2>
+            <div class="testimonial-list">
+                <div class="testimonial-item">
+                    <p>"O Jarvis Advisor me ajudou a economizar mais de 20% do meu orçamento mensal em apenas três meses!"</p>
+                    <h4>- João Silva</h4>
+                </div>
+                <div class="testimonial-item">
+                    <p>"A ferramenta de relatórios é incrível! Agora posso ver exatamente onde estou gastando e onde posso economizar."</p>
+                    <h4>- Maria Santos</h4>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="pricing" class="pricing">
+        <div class="container">
+            <h2>Preços</h2>
+            <div class="pricing-plans">
+                <div class="plan">
+                    <h3>Gratuito</h3>
+                    <p>Ideal para quem está começando.</p>
+                    <p class="price">R$0</p>
+                    <a href="#signup" class="button secondary-button">Inscreva-se</a>
+                </div>
+                <div class="plan">
+                    <h3>Premium</h3>
+                    <p>Para usuários avançados que querem mais recursos.</p>
+                    <p class="price">R$29,90/mês</p>
+                    <a href="#signup" class="button primary-button">Comece Agora</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="signup" class="signup">
+        <div class="container">
+            <h2>Comece a Usar o Jarvis Advisor</h2>
+            <p>Inscreva-se agora e comece a controlar sua vida financeira de forma eficiente.</p>
+            <form action="signup.html" method="POST">
+                <input type="email" placeholder="Seu e-mail" required>
+                <button type="submit" class="button primary-button">Inscreva-se</button>
+            </form>
+        </div>
+    </section>
+
+    <footer id="contact" class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-logo">
+                    <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Jarvis Advisor">
+                </div>
+                <div class="footer-links">
+                    <a href="#features">Recursos</a>
+                    <a href="#pricing">Preços</a>
+                    <a href="#contact">Contato</a>
+                </div>
+            </div>
+            <p>&copy; 2024 Jarvis Advisor. Todos os direitos reservados.</p>
+        </div>
+    </footer>
+
+    
+</body>
+</html>

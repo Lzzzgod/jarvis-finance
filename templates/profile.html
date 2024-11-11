@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.mask/1.14.16/jquery.mask.min.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='img/favicon.png') }}">
+    <title>Profile - Jarvis Advisor</title>
+</head>
+<body>
+            {% extends 'layout.html' %}
+
+            {% block title %}{% endblock %}
+            
+            {% block content %}
+            <div class="profile-container">
+              <div class="profile-header">
+                  <h2>Perfil de {{ username }}</h2>
+              </div>
+              <div class="profile-content">
+                  <div class="profile-info">
+                      <table>
+                          <tr>
+                              <th>Usuário:</th>
+                              <td>{{ account['nome_user'] }}</td>
+                          </tr>
+                          <tr>
+                              <th>E-mail:</th>
+                              <td>{{ account['email_user'] }}</td>
+                          </tr>
+                          <tr>
+                              <th>Telefone:</th>
+                              <td>{{ account['tel_user'] }}</td>
+                          </tr>
+                      </table>
+                  </div>
+                  <div class="profile-actions">
+                      <a href="{{ url_for('alterar_senha') }}" class="profile-button">Alterar Senha</a>
+                      <a href="{{ url_for('alterar_dados') }}" class="profile-button">Alterar Dados</a>
+                  </div>
+              </div>
+          </div>
+          {% endblock %}
+          
+</body>
+
+</html>

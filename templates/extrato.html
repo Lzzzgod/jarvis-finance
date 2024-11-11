@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HOME - Jarvis Advisor</title>
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.24/css/jquery.dataTables.css">
+    <script type="text/javascript" charset="utf8" src="https://code.jquery.com/jquery-3.5.1.js"></script>
+    <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.10.24/js/jquery.dataTables.js"></script>
+</head>
+    <body>
+        {% extends 'layout.html' %}
+
+        {% block title %}{% endblock %}
+
+        {% block content %}
+        <div class="extrato-container">
+          <h2>Extrato de Transações</h2>
+          <table id="extrato-table" class="display">
+              <thead>
+                  <tr>
+                      <th>Tipo</th>
+                      <th>Descrição</th>
+                      <th>Valor</th>
+                      <th>Data</th>
+                      <th>Categoria</th>
+                  </tr>
+              </thead>
+              <tbody>
+                  {% for transacao in transacoes %}
+                  <tr>
+                      <td>{{ transacao.tipo }}</td>
+                      <td>{{ transacao.descricao }}</td>
+                      <td>R$ {{ "%.2f"|format(transacao.valor) }}</td>
+                      <td data-order="{{ transacao.data.strftime('%Y%m%d') }}">{{ transacao.data.strftime('%d/%m/%Y') }}</td>
+                      <td>{{ transacao.categoria }}</td>
+                  </tr>
+                  {% endfor %}
+              </tbody>
+          </table>
+      </div>
+      
+      <script>
+        $(document).ready(function() {
+            $('#extrato-table').DataTable({
+                "language": {
+                    "url": "//cdn.datatables.net/plug-ins/1.10.24/i18n/Portuguese-Brasil.json"
+                },
+                "order": [[3, "desc"]], // Ordena pela coluna de data (índice 3) em ordem decrescente
+                "pageLength": 10,
+                "responsive": true,
+                "columns": [
+                    null,
+                    null,
+                    null,
+                    null,
+                    null
+                ],
+                "createdRow": function(row, data, dataIndex) {
+                    // Adiciona classes para receitas e despesas
+                    if (data[0] === "Receita") {
+                        $(row).addClass('receita');
+                    } else {
+                        $(row).addClass('despesa');
+                    }
+                }
+            });
+        });
+    </script>
+        {% endblock %}
+    </body>
+</html>
