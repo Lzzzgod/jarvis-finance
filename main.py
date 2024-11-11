@@ -35,7 +35,7 @@ sslify.ssl_cert = 'D:\Program Files\Jarvis\certs\myCA.pem'
 sslify.ssl_key = 'D:\Program Files\Jarvis\certs\myCA.key'
 
 
-# ============================== DB CONNECTION ===============================
+# ============================== DB CONNECTION ==============================
 
 app.config['MYSQL_HOST'] = os.getenv('MYSQL_HOST')
 app.config['MYSQL_USER'] = os.getenv('MYSQL_USER')
