@@ -1,4 +1,4 @@
 # jarvis-finance
 Jarvis finance app
 
-Update 12
+Update 1
