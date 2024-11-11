@@ -1532,7 +1532,7 @@ class Receita:
         cursor.close()
         return [cls(**receita) for receita in receitas]
     
-# ============================== CHAMADA DO APP ===============================
+# ============================== CHAMADA DO APP ==============================
 if __name__ == '__main__':
     # Configurações de segurança adicionais
     app.config['SESSION_COOKIE_SECURE'] = True
