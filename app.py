@@ -1542,18 +1542,3 @@ if __name__ == '__main__':
     app.config['SESSION_COOKIE_HTTPONLY'] = True
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
     app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=2)
-    
-    # Configurações de SSL
-    ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
-    ssl_context.load_cert_chain(
-        certfile=os.path.join(app.root_path, 'certs', 'myCA.pem'),
-        keyfile=os.path.join(app.root_path, 'certs', 'myCA.key'),
-        password=passphrase.encode()
-    )
-    
-    app.run(
-        host='0.0.0.0',
-        port=443,
-        debug=True,
-        ssl_context=ssl_context
-    )
