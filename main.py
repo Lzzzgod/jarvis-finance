@@ -61,7 +61,7 @@ def index():
     print("Rota index hit")
     return render_template("index.html")
     
-# ============================== LOGIN ===============================
+# ============================== LOGIN ==============================
 
 @app.route('/login/', methods=['GET', 'POST'])
 def login():
