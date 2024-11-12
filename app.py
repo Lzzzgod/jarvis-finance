@@ -40,6 +40,7 @@ app.config['MYSQL_USER'] = os.getenv('MYSQL_USER')
 app.config['MYSQL_PASSWORD'] = os.getenv('MYSQL_PASSWORD')
 app.config['MYSQL_DB'] = os.getenv('MYSQL_DB')
 app.config['MYSQL_SSL_CA'] = os.getenv('MYSQL_SSL_CA')
+app.config['MYSQL_SSL_DISABLED'] = os.getenv('MYSQL_SSL_DISABLED')
 
 @app.route('/testar_conexao')
 def testar_conexao():
