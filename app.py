@@ -32,15 +32,18 @@ app.secret_key = os.getenv('SECRET_KEY')
 load_dotenv()
 oauth = OAuth(app)
 
+passphrase = os.getenv('SSL_PASSPHRASE')
+sslify.ssl_cert = '.\certs\myCA.pem'
+sslify.ssl_key = '.\certs\myCA.key'
+
 # ============================== DB CONNECTION ==============================
-mysql = MySQL(app)
 
 app.config['MYSQL_HOST'] = os.getenv('MYSQL_HOST')
 app.config['MYSQL_USER'] = os.getenv('MYSQL_USER')
 app.config['MYSQL_PASSWORD'] = os.getenv('MYSQL_PASSWORD')
 app.config['MYSQL_DB'] = os.getenv('MYSQL_DB')
-app.config['MYSQL_SSL_CA'] = os.getenv('MYSQL_SSL_CA')
-app.config['MYSQL_SSL_DISABLED'] = os.getenv('MYSQL_SSL_DISABLED')
+
+
 
 @app.route('/testar_conexao')
 def testar_conexao():
@@ -52,7 +55,7 @@ def testar_conexao():
     except Exception as e:
         return 'Erro ao conectar ao banco de dados: ' + str(e)
 
-
+mysql = MySQL(app)
 
 @app.route("/")
 def index():
@@ -703,6 +706,21 @@ class PluggyAPI:
             print(f"Erro ao obter token de acesso: {e}")
             raise
 
+    def create_connect_token(self):
+        """Cria um token de conexão para o widget do Pluggy Connect"""
+        try:
+            # Assegure-se de usar o access_token correto no cabeçalho
+            response = requests.post(
+                f"{self.BASE_URL}/connect_token",
+                headers={"X-API-KEY": self.access_token},  # Usando o token de autenticação
+                json={}  # Payload vazio, conforme o exemplo da documentação
+            )
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            print(f"Erro ao criar connect token: {e}")
+            raise
+
     def list_connectors(self, page=1, page_size=10, name=None, countries=None, types=None):
         """Lista todos os conectores disponíveis com opções de filtro"""
         try:
@@ -914,11 +932,28 @@ pluggy_client = PluggyAPI(
     client_secret=os.getenv('PLUGGY_CLIENT_SECRET')
 )
 
+@app.route('/debug-token', methods=['GET'])
+def debug_token():
+    # Aqui você pode acessar o access token do Pluggy
+    access_token = request.args.get('access_token')
+
+    if not access_token:
+        return jsonify({'error': 'Access token is required'}), 400
+
+    # Aqui você pode adicionar a lógica para debugar o access token
+    # Por exemplo, você pode decodificá-lo ou verificar sua validade
+    debug_info = {
+        'access_token': access_token,
+        # Adicione mais informações que você deseja debugar
+    }
+
+    return jsonify(debug_info), 200
+
 @app.route('/list_connectors')
 def list_connectors():
     if 'loggedin' in session:
         try:
-            connectors = pluggy_client.list_connectors(countries='BR')  # Corrigido para 'countries'
+            connectors = pluggy_client.list_connectors(countries='BR')
             return jsonify({
                 'status': 'success',
                 'connectors': connectors.get('results', [])
@@ -929,16 +964,41 @@ def list_connectors():
                 'message': str(e)
             }), 500
     return jsonify({'error': 'Unauthorized'}), 401
+
+@app.route("/get_api_key", methods=["GET"])
+def get_api_key():
+    """Endpoint para obter a API Key usando o clientId e clientSecret"""
+    try:
+        api_key = pluggy_client._get_access_token()  # Pega a API Key chamando o método diretamente
+        return jsonify({"apiKey": api_key}), 200  # Retorna a API Key no JSON de resposta
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
     
 @app.route('/create_connect_token', methods=['GET'])
 def create_connect_token():
     if 'loggedin' in session:
+        headers = {
+            "accept": "application/json",
+            "content-type": "application/json",
+            "X-API-KEY": pluggy_client._get_access_token()
+        }
+        
         try:
-            connect_token = pluggy_client.create_connect_token()
-            return jsonify({
-                'status': 'success',
-                'accessToken': connect_token.get('accessToken')
-            })
+            # Chama a API da Pluggy para criar o connect token
+            response = requests.post(PluggyAPI.BASE_URL, headers=headers)
+
+            if response.status_code == 200:
+                # Retorna o connect token para o frontend
+                response_json = response.json()
+                return jsonify({
+                    'status': 'success',
+                    'accessToken': response_json.get('accessToken')
+                })
+            else:
+                return jsonify({
+                    'status': 'error',
+                    'message': response.json().get('message', 'Erro ao criar token de conexão')
+                }), response.status_code
         except Exception as e:
             return jsonify({
                 'status': 'error',
@@ -948,28 +1008,21 @@ def create_connect_token():
 
 @app.route('/create_item', methods=['POST'])
 def create_item():
-    try:
-        data = request.json
-        connector_id = data.get('connectorId')
-        consent_accepted = data.get('consentAccepted')  # Pega a escolha do consentimento
+    if 'loggedin' in session:
+        try:
+            data = request.json
+            connector_id = data.get('connectorId')
 
-        if not connector_id:
-            return jsonify({"status": "error", "message": "connectorId é obrigatório"}), 400
+            if not connector_id:
+                return jsonify({"status": "error", "message": "connectorId é obrigatório"}), 400
 
-        # Aqui você pode armazenar a escolha do consentimento no banco de dados
-        cursor = mysql.connection.cursor()
-        cursor.execute("INSERT INTO jv_consentimento (user_id, connector_id, consent_accepted) VALUES (%s, %s, %s)", 
-                       (session['id'], connector_id, consent_accepted))
-        mysql.connection.commit()  # Confirma a transação
-        cursor.close()
+            # Cria o item na API Pluggy 
+            item = pluggy_client.create_item(connector_id)
+            return jsonify({"status": "success", "item": item})
 
-        # Cria o item na API Pluggy 
-        item = pluggy_client.create_item(connector_id)  # Chame a função para criar o item na API 
-        return jsonify({"status": "success", "item": item, "accessToken": item.get('accessToken')})
-
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-    
+        except Exception as e:
+            return jsonify({"status": "error", "message": str(e)}), 500
+    return jsonify({'error': 'Unauthorized'}), 401
 
 @app.route('/check_item_status/<item_id>', methods=['GET'])
 def check_item_status(item_id):
@@ -1538,3 +1591,18 @@ if __name__ == '__main__':
     app.config['SESSION_COOKIE_HTTPONLY'] = True
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
     app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=2)
+    
+    # Configurações de SSL
+    ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+    ssl_context.load_cert_chain(
+        certfile=os.path.join(app.root_path, 'certs', 'myCA.pem'),
+        keyfile=os.path.join(app.root_path, 'certs', 'myCA.key'),
+        password=passphrase.encode()
+    )
+    
+    app.run(
+        host='0.0.0.0',
+        port=443,
+        debug=True,
+        ssl_context=ssl_context
+    )

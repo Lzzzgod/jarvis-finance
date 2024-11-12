@@ -1,21 +1,3 @@
-let selectedConnectorId = null;
-
-// Inicializa a conexão com a API da Pluggy
-async function initializeConnection() {
-    try {
-        const response = await fetch('/create_connect_token');
-        const data = await response.json();
-        if (data.status === 'success') {
-            showConnectionModal();
-            loadBanks();
-        }
-    } catch (error) {
-        console.error('Erro ao inicializar conexão:', error);
-    }
-}
-
-
-// Adiciona evento de clique ao botão "Conectar Nova Conta"
 document.getElementById('connectAccountBtn').addEventListener('click', async function() {
     try {
         const response = await fetch('/create_connect_token'); // Chama a rota que cria o token de conexão
@@ -23,7 +5,7 @@ document.getElementById('connectAccountBtn').addEventListener('click', async fun
 
         if (data.status === 'success') {
             // Redireciona para o widget de conexão da Pluggy
-            window.open(`https://api.pluggy.ai/connect?accessToken=${data.accessToken}`, '_blank');
+            window.open(`https://api.pluggy.ai/connect_token?accessToken=${data.accessToken}`, '_blank');
         } else {
             alert('Erro ao criar token de conexão: ' + data.message);
         }
