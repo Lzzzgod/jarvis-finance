@@ -32,18 +32,15 @@ app.secret_key = os.getenv('SECRET_KEY')
 load_dotenv()
 oauth = OAuth(app)
 
-passphrase = os.getenv('SSL_PASSPHRASE')
-sslify.ssl_cert = '.\certs\myCA.pem'
-sslify.ssl_key = '.\certs\myCA.key'
-
 # ============================== DB CONNECTION ==============================
+mysql = MySQL(app)
 
 app.config['MYSQL_HOST'] = os.getenv('MYSQL_HOST')
 app.config['MYSQL_USER'] = os.getenv('MYSQL_USER')
 app.config['MYSQL_PASSWORD'] = os.getenv('MYSQL_PASSWORD')
 app.config['MYSQL_DB'] = os.getenv('MYSQL_DB')
-
-
+app.config['MYSQL_SSL_CA'] = os.getenv('MYSQL_SSL_CA')
+app.config['MYSQL_SSL_DISABLED'] = os.getenv('MYSQL_SSL_DISABLED')
 
 @app.route('/testar_conexao')
 def testar_conexao():
@@ -55,7 +52,7 @@ def testar_conexao():
     except Exception as e:
         return 'Erro ao conectar ao banco de dados: ' + str(e)
 
-mysql = MySQL(app)
+
 
 @app.route("/")
 def index():
@@ -706,17 +703,22 @@ class PluggyAPI:
             print(f"Erro ao obter token de acesso: {e}")
             raise
 
-    def create_connect_token(self):
-        """Cria um token de conexão para o widget do Pluggy Connect"""
+    def connect_token(self):
+        """Cria um token de conexão"""
         try:
-            # Assegure-se de usar o access_token correto no cabeçalho
+            payload = {}
             response = requests.post(
                 f"{self.BASE_URL}/connect_token",
-                headers={"X-API-KEY": self.access_token},  # Usando o token de autenticação
-                json={}  # Payload vazio, conforme o exemplo da documentação
+                headers={"X-API-KEY": self.access_token},
+                json=payload
             )
             response.raise_for_status()
+
+            # Debug: imprimir a resposta
+            print(f"Resposta do Connect Token: {response.json()}")
+
             return response.json()
+
         except requests.exceptions.RequestException as e:
             print(f"Erro ao criar connect token: {e}")
             raise
@@ -758,21 +760,6 @@ class PluggyAPI:
             return response.json()
         except requests.exceptions.RequestException as e:
             print(f"Erro ao obter conector: {e}")
-            raise
-
-    def create_connect_token(self, options=None):
-        """Cria um token de conexão para o widget do Pluggy Connect"""
-        try:
-            payload = options if options else {}
-            response = requests.post(
-                f"{self.BASE_URL}/connect_token",
-                headers={"X-API-KEY": self.access_token},
-                json=payload
-            )
-            response.raise_for_status()
-            return response.json()
-        except requests.exceptions.RequestException as e:
-            print(f"Erro ao criar connect token: {e}")
             raise
 
     def create_item(self, connector_id, parameters=None, webhookUrl=None):
@@ -935,16 +922,17 @@ pluggy_client = PluggyAPI(
 @app.route('/debug-token', methods=['GET'])
 def debug_token():
     # Aqui você pode acessar o access token do Pluggy
-    access_token = request.args.get('access_token')
+    access_token = pluggy_client.access_token
 
     if not access_token:
-        return jsonify({'error': 'Access token is required'}), 400
+        return jsonify({'status': 'Access token is required'}), 400
 
     # Aqui você pode adicionar a lógica para debugar o access token
     # Por exemplo, você pode decodificá-lo ou verificar sua validade
     debug_info = {
         'access_token': access_token,
         # Adicione mais informações que você deseja debugar
+        
     }
 
     return jsonify(debug_info), 200
@@ -965,46 +953,42 @@ def list_connectors():
             }), 500
     return jsonify({'error': 'Unauthorized'}), 401
 
-@app.route("/get_api_key", methods=["GET"])
-def get_api_key():
-    """Endpoint para obter a API Key usando o clientId e clientSecret"""
+@app.route('/connect_token', methods=['GET'])
+def get_connect_token():
     try:
-        api_key = pluggy_client._get_access_token()  # Pega a API Key chamando o método diretamente
-        return jsonify({"apiKey": api_key}), 200  # Retorna a API Key no JSON de resposta
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    
-@app.route('/create_connect_token', methods=['GET'])
-def create_connect_token():
-    if 'loggedin' in session:
+        url = pluggy_client.BASE_URL
         headers = {
             "accept": "application/json",
             "content-type": "application/json",
-            "X-API-KEY": pluggy_client._get_access_token()
+            "X-API-KEY": pluggy_client.access_token
         }
-        
-        try:
-            # Chama a API da Pluggy para criar o connect token
-            response = requests.post(PluggyAPI.BASE_URL, headers=headers)
 
-            if response.status_code == 200:
-                # Retorna o connect token para o frontend
-                response_json = response.json()
-                return jsonify({
-                    'status': 'success',
-                    'accessToken': response_json.get('accessToken')
-                })
-            else:
-                return jsonify({
-                    'status': 'error',
-                    'message': response.json().get('message', 'Erro ao criar token de conexão')
-                }), response.status_code
-        except Exception as e:
-            return jsonify({
-                'status': 'error',
-                'message': str(e)
-            }), 500
-    return jsonify({'error': 'Unauthorized'}), 401
+        response = requests.post(f"{url}/connect_token", headers=headers)
+
+        # Verificar se a resposta foi bem-sucedida
+        response.raise_for_status()
+
+        # Retornar o JSON como resposta para o cliente
+        return jsonify(response.json())  # Retorna a resposta como JSON
+
+    except requests.exceptions.RequestException as e:
+        # Retorna erro se a requisição falhar
+        return jsonify({"error": str(e)}), 500
+    
+@app.route('/debug_connect_token', methods=['GET'])
+def debug_connect_token():
+    try:
+        # Obtém o JSON enviado
+        data = request.get_json()
+
+        # Verifica se o campo 'connect_token' está presente no JSON
+        if 'connect_token' in data:
+            print(f"Connect Token Recebido: {data['connect_token']}")
+            return jsonify({"message": "Connect token recebido com sucesso!", "connect_token": data['connect_token']}), 200
+        else:
+            return jsonify({"error": "Campo 'connect_token' não encontrado!"}), 400
+    except Exception as e:
+        return jsonify({"error": f"Ocorreu um erro: {str(e)}"}), 500
 
 @app.route('/create_item', methods=['POST'])
 def create_item():
@@ -1591,18 +1575,3 @@ if __name__ == '__main__':
     app.config['SESSION_COOKIE_HTTPONLY'] = True
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
     app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=2)
-    
-    # Configurações de SSL
-    ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
-    ssl_context.load_cert_chain(
-        certfile=os.path.join(app.root_path, 'certs', 'myCA.pem'),
-        keyfile=os.path.join(app.root_path, 'certs', 'myCA.key'),
-        password=passphrase.encode()
-    )
-    
-    app.run(
-        host='0.0.0.0',
-        port=443,
-        debug=True,
-        ssl_context=ssl_context
-    )
