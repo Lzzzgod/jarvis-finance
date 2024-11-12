@@ -14,6 +14,25 @@ async function initializeConnection() {
     }
 }
 
+
+// Adiciona evento de clique ao botão "Conectar Nova Conta"
+document.getElementById('connectAccountBtn').addEventListener('click', async function() {
+    try {
+        const response = await fetch('/create_connect_token'); // Chama a rota que cria o token de conexão
+        const data = await response.json();
+
+        if (data.status === 'success') {
+            // Redireciona para o widget de conexão da Pluggy
+            window.open(`https://api.pluggy.ai/connect?accessToken=${data.accessToken}`, '_blank');
+        } else {
+            alert('Erro ao criar token de conexão: ' + data.message);
+        }
+    } catch (error) {
+        console.error('Erro ao conectar:', error);
+        alert('Erro ao conectar: ' + error.message);
+    }
+});
+
 // Exibe o modal de conexão
 function showConnectionModal() {
     document.getElementById('connectionModal').style.display = 'block';

@@ -32,19 +32,14 @@ app.secret_key = os.getenv('SECRET_KEY')
 load_dotenv()
 oauth = OAuth(app)
 
-passphrase = os.getenv('SSL_PASSPHRASE')
-sslify.ssl_cert = '.\certs\myCA.pem'
-sslify.ssl_key = '.\certs\myCA.key'
-
-
 # ============================== DB CONNECTION ==============================
+mysql = MySQL(app)
 
 app.config['MYSQL_HOST'] = os.getenv('MYSQL_HOST')
 app.config['MYSQL_USER'] = os.getenv('MYSQL_USER')
 app.config['MYSQL_PASSWORD'] = os.getenv('MYSQL_PASSWORD')
 app.config['MYSQL_DB'] = os.getenv('MYSQL_DB')
-
-
+app.config['MYSQL_SSL_CA'] = os.getenv('MYSQL_SSL_CA')
 
 @app.route('/testar_conexao')
 def testar_conexao():
@@ -56,7 +51,7 @@ def testar_conexao():
     except Exception as e:
         return 'Erro ao conectar ao banco de dados: ' + str(e)
 
-mysql = MySQL(app)
+
 
 @app.route("/")
 def index():
