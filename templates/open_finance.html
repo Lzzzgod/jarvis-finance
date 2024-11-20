@@ -19,62 +19,29 @@
                     <h2>Open Finance</h2>
                     <p>Conecte suas contas bancárias de forma segura</p>
     
-                    <div class="banks-container">
-                        <!-- Status das conexões -->
-                        <div class="connection-status">
-                            <h3>Status das Conexões</h3>
-                            <div id="connected-banks">
-                                <!-- Bancos conectados serão listados aqui dinamicamente -->
+                    <div class="connected-banks">
+                        <h3>Bancos Conectados</h3>
+                        <div id="bankList">
+                            <div class="checking-accounts-container">
+                                <h5>Contas Correntes</h5>
+                                <div class="account-list">
+                                    <!-- Os itens das contas correntes serão inseridos aqui -->
+                                </div>
+                            </div>
+                        
+                            <div class="credit-cards-container">
+                                <h5>Cartões de Crédito</h5>
+                                <div class="credit-card-list">
+                                    <!-- Os itens dos cartões de crédito serão inseridos aqui -->
+                                </div>
                             </div>
                         </div>
+                    </div>
     
                         <button id="connectButton" class="connect-button" onclick="openPluggyWidget()">
                             <i class="fas fa-plus-circle"></i>
                             Conectar Nova Conta
                         </button>
-
-                    <!-- Modal de conexão -->
-                    <div id="connectionModal" class="modal">
-                        <div class="modal-content">
-                            <span class="close" onclick="closeModal()">×</span>
-                            <h2>Conectar Conta Bancária</h2>
-                            
-                            <div class="connection-step" id="bankSelection">
-                                <h3>Selecione seu banco</h3>
-                                <div class="bank-list" id="bank-list">
-                                    <!-- Lista de bancos será preenchida via JavaScript -->
-                                </div>
-                            </div>
-    
-                            <!-- Etapa 2: Termos de consentimento -->
-                            <div class="connection-step" id="consentStep" style="display: none;">
-                                <h3>Termos de Consentimento</h3>
-                                <div class="consent-text">
-                                    <p>Ao prosseguir, você autoriza:</p>
-                                    <ul>
-                                        <li>Acesso somente leitura às suas informações bancárias</li>
-                                        <li>Compartilhamento seguro de dados de transações</li>
-                                        <li>Sincronização automática de movimentações</li>
-                                    </ul>
-                                </div>
-                                <div class="consent-check">
-                                    <input type="checkbox" id="consentCheck">
-                                    <label for="consentCheck">Li e aceito os termos de consentimento</label>
-                                </div>
-                            </div>
-
-                            <!-- Etapa 3: Status da conexão -->
-                            <div class="connection-step" id="connectionStatus" style="display: none;">
-                                <div class="status-indicator">
-                                    <div class="spinner"></div>
-                                    <p>Estabelecendo conexão segura...</p>
-                                </div>
-                            </div>
-    
-                            <div class="modal-footer">
-                                <button id="prevStep" class="button secondary" style="display: none;">Voltar</button>
-                                <button id="nextStep" class="button primary" disabled>Continuar</button>
-                            </div>
                         </div>
                     </div>
                 </div>

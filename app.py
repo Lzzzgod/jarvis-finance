@@ -25,6 +25,8 @@ import qrcode
 import os
 import secrets
 import ssl
+import logging
+import json
 
 app = Flask(__name__, static_folder='static')
 sslify = SSLify(app)
@@ -686,6 +688,7 @@ class PluggyAPI:
         self.client_id = client_id
         self.client_secret = client_secret
         self.access_token = self._get_access_token()
+        
 
     def _get_access_token(self):
         """Obtém o token de acesso da API do Pluggy"""
@@ -706,7 +709,7 @@ class PluggyAPI:
     def connect_token(self):
         """Cria um token de conexão"""
         try:
-            payload = {}
+            payload = { }
             response = requests.post(
                 f"{self.BASE_URL}/connect_token",
                 headers={"X-API-KEY": self.access_token},
@@ -762,336 +765,404 @@ class PluggyAPI:
             print(f"Erro ao obter conector: {e}")
             raise
 
-    def create_item(self, connector_id, parameters=None, webhookUrl=None):
+    def create_item(self, connector_id, parameters=None):
         """Cria um novo item (conexão com instituição financeira)"""
         try:
             payload = {
                 "connectorId": connector_id,
                 "parameters": parameters or {}
             }
-            if webhookUrl:
-                payload["webhookUrl"] = webhookUrl
-
             response = requests.post(
                 f"{self.BASE_URL}/items",
                 headers={"X-API-KEY": self.access_token},
                 json=payload
             )
-            response.raise_for_status()  # Isso lançará um erro se a resposta não for 200
+            response.raise_for_status()
             return response.json()
         except requests.exceptions.RequestException as e:
             print(f"Erro ao criar item: {e}")
             raise
 
-    def update_item(self, item_id, parameters=None):
-        """Atualiza um item existente"""
-        try:
-            payload = {"parameters": parameters} if parameters else {}
-            response = requests.patch(
-                f"{self.BASE_URL}/items/{item_id}",
-                headers={"X-API-KEY": self.access_token},
-                json=payload
-            )
-            response.raise_for_status()
-            return response.json()
-        except requests.exceptions.RequestException as e:
-            print(f"Erro ao atualizar item: {e}")
-            raise
-
-    def get_item(self, item_id):
-        """Obtém informações de um item específico"""
-        try:
-            response = requests.get(
-                f"{self.BASE_URL}/items/{item_id}",
-                headers={"X-API-KEY": self.access_token}
-            )
-            response.raise_for_status()
-            return response.json()
-        except requests.exceptions.RequestException as e:
-            print(f"Erro ao obter item: {e}")
-            raise
-
-    def delete_item(self, item_id):
-        """Remove um item"""
-        try:
-            response = requests.delete(
-                f"{self.BASE_URL}/items/{item_id}",
-                headers={"X-API-KEY": self.access_token}
-            )
-            response.raise_for_status()
-            return response.status_code == 200
-        except requests.exceptions.RequestException as e:
-            print(f"Erro ao deletar item: {e}")
-            raise
-
-    def get_accounts(self, item_id):
-        """Obtém todas as contas associadas a um item"""
-        try:
-            response = requests.get(
-                f"{self.BASE_URL}/accounts",
-                headers={"X-API-KEY": self.access_token},
-                params={"itemId": item_id}
-            )
-            response.raise_for_status()
-            return response.json()
-        except requests.exceptions.RequestException as e:
-            print(f"Erro ao obter contas: {e}")
-            raise
-
-    def get_transactions(self, item_id, from_date=None, to_date=None):
-        """Obtém todas as transações de um item"""
-        try:
-            params = {"itemId": item_id}
-            if from_date:
-                params["from"] = from_date
-            if to_date:
-                params["to"] = to_date
-
-            response = requests.get(
-                f"{self.BASE_URL}/transactions",
-                headers={"X-API-KEY": self.access_token},
-                params=params
-            )
-            response.raise_for_status()
-            return response.json()
-        except requests.exceptions.RequestException as e:
-            print(f"Erro ao obter transações: {e}")
-            raise
-
-    def get_investments(self, item_id):
-        """Obtém todos os investimentos de um item"""
-        try:
-            response = requests.get(
-                f"{self.BASE_URL}/investments",
-                headers={"X-API-KEY": self.access_token},
-                params={"itemId": item_id}
-            )
-            response.raise_for_status()
-            return response.json()
-        except requests.exceptions.RequestException as e:
-            print(f"Erro ao obter investimentos: {e}")
-            raise
-
-    def get_identity(self, item_id):
-        """Obtém informações de identidade associadas a um item"""
-        try:
-            response = requests.get(
-                f"{self.BASE_URL}/identity",
-                headers={"X-API-KEY": self.access_token},
-                params={"itemId": item_id}
-            )
-            response.raise_for_status()
-            return response.json()
-        except requests.exceptions.RequestException as e:
-            print(f"Erro ao obter identidade: {e}")
-            raise
-
-    def validate_mfa(self, item_id, mfa_token):
-        """Valida autenticação de dois fatores para um item"""
-        try:
-            response = requests.post(
-                f"{self.BASE_URL}/items/{item_id}/mfa",
-                headers={"X-API-KEY": self.access_token},
-                json={"token": mfa_token}
-            )
-            response.raise_for_status()
-            return response.json()
-        except requests.exceptions.RequestException as e:
-            print(f"Erro ao validar MFA: {e}")
-
-    def get_connected_banks(self):
-        """Obtém todas as contas conectadas"""
-        try:
-            response = requests.get(
-                f"{self.BASE_URL}/items",  # Use self.BASE_URL aqui
-                headers={"X-API-KEY": self.access_token}
-            )
-            response.raise_for_status()
-            return response.json()
-        except requests.exceptions.RequestException as e:
-            print(f"Erro ao obter contas: {e}")
-            raise
-        
-
 # Inicialize o cliente Pluggy
 pluggy_client = PluggyAPI(
     client_id=os.getenv('PLUGGY_CLIENT_ID'),
     client_secret=os.getenv('PLUGGY_CLIENT_SECRET')
+    
 )
 
-@app.route('/debug-token', methods=['GET'])
-def debug_token():
-    # Aqui você pode acessar o access token do Pluggy
-    access_token = pluggy_client.access_token
-
-    if not access_token:
-        return jsonify({'status': 'Access token is required'}), 400
-
-    # Aqui você pode adicionar a lógica para debugar o access token
-    # Por exemplo, você pode decodificá-lo ou verificar sua validade
-    debug_info = {
-        'access_token': access_token,
-        # Adicione mais informações que você deseja debugar
-        
+@app.route('/connector_credentials', methods=['GET'])
+def get_connector_credentials(connector_id):
+    url = f"https://api.pluggy.ai/connectors/{connector_id}"
+    
+    headers = {
+        "accept": "application/json",
+        "content-type": "application/json",
+        "X-API-KEY": pluggy_client.access_token
     }
+    
+    response = requests.get(url, headers=headers)
+    
+    if response.status_code == 200:
+        return response.json()  # Retorna as credenciais necessárias
+    else:
+        raise Exception(f"Erro ao buscar credenciais do conector: {response.text}")
+    
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
-    return jsonify(debug_info), 200
-
-@app.route('/list_connectors')
+@app.route('/list_connectors', methods=['GET'])
 def list_connectors():
     if 'loggedin' in session:
         try:
+            # Fetch connectors from Pluggy API
             connectors = pluggy_client.list_connectors(countries='BR')
+            connectors_data = connectors.get('results', [])
+            
+            logging.debug(f"Conectores recebidos: {connectors_data}")
+
+            # Salvar conectores no banco de dados
+            if connectors_data:
+                for connector in connectors_data:
+                    store_connector_in_db(connector)
+
             return jsonify({
                 'status': 'success',
-                'connectors': connectors.get('results', [])
+                'connectors': connectors_data
             })
         except Exception as e:
+            logging.error(f"Erro ao buscar conectores: {e}")
             return jsonify({
                 'status': 'error',
                 'message': str(e)
             }), 500
     return jsonify({'error': 'Unauthorized'}), 401
 
+def store_connector_in_db(connector):
+    try:
+        # Conectar ao banco de dados usando o MySQLdb
+        cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
+        
+        # Remover o 'Z' e ajustar a data para o formato compatível com MySQL
+        created_at = connector['createdAt'].replace('T', ' ')[:-1]  # Substitui 'T' por espaço e remove 'Z'
+        updated_at = connector['updatedAt'].replace('T', ' ')[:-1]  # Mesma coisa para a data de atualização
+
+        logging.debug(f"Inserindo conector: {connector['id']}")
+
+        # Inserir os dados do conector na tabela
+        cursor.execute("""
+            INSERT INTO jv_connectors (id, name, logo, institution_url, products, type, created_at, updated_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        """, (
+            connector['id'],
+            connector['name'],
+            connector['imageUrl'],
+            connector['institutionUrl'],
+            json.dumps(connector['products']),  # Armazena a lista de produtos como JSON
+            connector['type'],
+            created_at,  # Usando o formato corrigido
+            updated_at   # Usando o formato corrigido
+        ))
+
+        # Commit da transação
+        mysql.connection.commit()
+        logging.debug(f"Conector {connector['id']} inserido com sucesso.")
+
+        # Fechar o cursor
+        cursor.close()
+
+    except MySQLdb.Error as err:
+        logging.error(f"Erro ao conectar ou inserir dados no banco: {err}")
+    finally:
+        if cursor:
+            cursor.close()
+
 @app.route('/connect_token', methods=['GET'])
 def get_connect_token():
     try:
-        url = pluggy_client.BASE_URL
+        # Confirme se o ID do usuário está disponível na sessão
+        if 'id' not in session:
+            return jsonify({"error": "ID de sessão não definido"}), 400
+
+        url = "https://api.pluggy.ai/connect_token"
+        payload = {
+            "options": {
+                "clientUserId": str(session['id']),  # Convertendo o ID para string
+                "webhookUrl": "https://www.jarvisfinance.xyz"
+            }
+        }
         headers = {
             "accept": "application/json",
             "content-type": "application/json",
-            "X-API-KEY": pluggy_client.access_token
+            "X-API-KEY": pluggy_client.access_token  # Certifique-se de que o token está correto
         }
 
-        response = requests.post(f"{url}/connect_token", headers=headers)
+        response = requests.post(url, json=payload, headers=headers)
 
-        # Verificar se a resposta foi bem-sucedida
+        # Verifique se a resposta foi bem-sucedida
         response.raise_for_status()
 
-        # Retornar o JSON como resposta para o cliente
-        return jsonify(response.json())  # Retorna a resposta como JSON
+        # Retorne a resposta da API como JSON
+        return jsonify(response.json())
 
     except requests.exceptions.RequestException as e:
-        # Retorna erro se a requisição falhar
         return jsonify({"error": str(e)}), 500
-    
-@app.route('/debug_connect_token', methods=['GET'])
-def debug_connect_token():
-    try:
-        # Obtém o JSON enviado
-        data = request.get_json()
-
-        # Verifica se o campo 'connect_token' está presente no JSON
-        if 'connect_token' in data:
-            print(f"Connect Token Recebido: {data['connect_token']}")
-            return jsonify({"message": "Connect token recebido com sucesso!", "connect_token": data['connect_token']}), 200
-        else:
-            return jsonify({"error": "Campo 'connect_token' não encontrado!"}), 400
-    except Exception as e:
-        return jsonify({"error": f"Ocorreu um erro: {str(e)}"}), 500
 
 @app.route('/create_item', methods=['POST'])
 def create_item():
-    if 'loggedin' in session:
-        try:
-            data = request.json
-            connector_id = data.get('connectorId')
+    # Verifica se o usuário está logado
+    if 'loggedin' not in session:
+        return jsonify({'status': 'error', 'message': 'Unauthorized'}), 401
 
-            if not connector_id:
-                return jsonify({"status": "error", "message": "connectorId é obrigatório"}), 400
-
-            # Cria o item na API Pluggy 
-            item = pluggy_client.create_item(connector_id)
-            return jsonify({"status": "success", "item": item})
-
-        except Exception as e:
-            return jsonify({"status": "error", "message": str(e)}), 500
-    return jsonify({'error': 'Unauthorized'}), 401
-
-@app.route('/check_item_status/<item_id>', methods=['GET'])
-def check_item_status(item_id):
     try:
-        headers = {"X-API-KEY": pluggy_client.access_token}
-        response = requests.get(
-            f"{pluggy_client.BASE_URL}/items/{item_id}", 
-            headers=headers
-        )
-        return jsonify(response.json())
-    except Exception as e:
-        return jsonify({
-            "status": "error", 
-            "message": str(e)
-        }), 500
+        # Obtém os dados enviados pelo frontend
+        data = request.json
+        print('Dados recebidos no backend:', data)
+        if not data:
+            return jsonify({'status': 'error', 'message': 'Payload inválido'}), 400
 
-@app.route('/update_item/<item_id>', methods=['PATCH'])
-def update_item(item_id):
-    try:
-        parameters = request.json.get('parameters', {})
-        headers = {"X-API-KEY": pluggy_client.access_token}
+        # Obtém o 'item_id' e 'connector_id' do JSON recebido
+        item_id = data.get('id')  # Certifique-se de que o frontend envie o JSON correto
+        connector_id = data.get('connector_id')  # Novo campo para o 'connector_id'
         
-        response = requests.patch(
-            f"{pluggy_client.BASE_URL}/items/{item_id}", 
-            headers=headers, 
-            json={"parameters": parameters}
-        )
-        
-        return jsonify({
-            "status": "success",
-            "item": response.json()
-        })
-    except Exception as e:
-        return jsonify({
-            "status": "error",
-            "message": str(e)
-        }), 500
+        if connector_id == 2:
+            connector_id = 200
 
-@app.route('/get_item/<item_id>', methods=['GET'])
-def get_item(item_id):
+        if not item_id:
+            return jsonify({'status': 'error', 'message': 'Item ID não encontrado no JSON'}), 400
+        if not connector_id:
+            return jsonify({'status': 'error', 'message': 'Connector ID não encontrado no JSON'}), 400
+
+        # Obtém o ID do usuário logado
+        user_id = session['id']
+
+        # Armazena o item_id, client_user_id e connector_id no banco
+        cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
+        cursor.execute("""
+            INSERT INTO jv_items (item_id, client_user_id, connector_id)
+            VALUES (%s, %s, %s)
+        """, (item_id, user_id, connector_id))
+        mysql.connection.commit()
+        cursor.close()
+
+        # Resposta de sucesso
+        return jsonify({'status': 'success', 'message': 'Item e Connector associados ao usuário com sucesso!'}), 201
+
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': f'Erro interno: {str(e)}'}), 500
+
+@app.route('/delete_bank', methods=['DELETE'])
+def delete_bank():
     try:
-        item = pluggy_client.get_item(item_id)
-        return jsonify({
-            "status": "success",
-            "item": item
-        })
-    except Exception as e:
-        return jsonify({
-            "status": "error",
-            "message": str(e)
-        }), 500
-
-@app.route('/delete_item/<item_id>', methods=['DELETE'])
-def delete_item(item_id):
-    try:
-        headers = {"X-API-KEY": pluggy_client.access_token}
-        response = requests.delete(
-            f"{pluggy_client.BASE_URL}/items/{item_id}", 
-            headers=headers
-        )
+        logging.info("Recebendo solicitação para remover banco conectado.")
         
-        return jsonify({
-            "status": "success",
-            "deleted": response.status_code == 200
-        })
-    except Exception as e:
-        return jsonify({
-            "status": "error",
-            "message": str(e)
-        }), 500
+        # Obter o item_id do request JSON
+        data = request.get_json()
+        item_id = data.get('item_id')
 
-@app.route('/get_accounts/<item_id>', methods=['GET'])
-def get_accounts(item_id):
-    if 'loggedin' in session:
-        try:
-            headers = {"X-API-KEY": pluggy_client.access_token}
-            response = requests.get(
-                f"{pluggy_client.BASE_URL}/accounts",
-                headers=headers,
-                params={"itemId": item_id}
-            )
-            return jsonify(response.json())
-        except Exception as e:
-            return jsonify({'error': str(e)}), 500
-    return jsonify({'error': 'Unauthorized'}), 401
+        if not item_id:
+            logging.error("ID do item não fornecido na solicitação.")
+            return jsonify({'status': 'error', 'message': 'ID do item não fornecido'}), 400
+
+        logging.debug(f"Item ID recebido: {item_id}")
+
+        # Configurar a URL da API Pluggy
+        url = f"https://api.pluggy.ai/items/{item_id}"
+        headers = {
+            "accept": "application/json",
+            "X-API-KEY": pluggy_client.access_token  # Altere para sua chave correta
+        }
+
+        logging.debug(f"Enviando solicitação DELETE para Pluggy na URL: {url}")
+        
+        # Fazer a requisição DELETE na Pluggy
+        response = requests.delete(url, headers=headers)
+
+        if response.status_code in [200, 204]:  # Considere sucesso para 200 ou 204
+            logging.info(f"Item {item_id} removido com sucesso da Pluggy. Resposta: {response.json()}")
+            
+            # Conectar ao banco de dados
+            cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
+            logging.debug(f"Conectado ao banco de dados. Tentando remover contas associadas ao item {item_id}.")
+            
+            # Primeiro, removemos as contas associadas ao item
+            cursor.execute("DELETE FROM jv_accounts WHERE item_id = %s", (item_id,))
+            mysql.connection.commit()
+
+            affected_rows = cursor.rowcount
+            if affected_rows > 0:
+                logging.info(f"{affected_rows} conta(s) removida(s) associada(s) ao item {item_id}.")
+            else:
+                logging.warning(f"Nenhuma conta encontrada para o item {item_id}.")
+
+            # Agora, removemos o item da tabela jv_items
+            logging.debug(f"Removendo item {item_id} da tabela jv_items.")
+            cursor.execute("DELETE FROM jv_items WHERE item_id = %s", (item_id,))
+            mysql.connection.commit()
+
+            affected_rows = cursor.rowcount
+            cursor.close()
+
+            if affected_rows > 0:
+                logging.info(f"Item {item_id} removido com sucesso do banco local.")
+                return jsonify({'status': 'success', 'message': 'Banco removido com sucesso'}), 200
+            else:
+                logging.warning(f"Nenhum registro encontrado para o item {item_id} no banco local.")
+                return jsonify({'status': 'warning', 'message': 'Banco removido da Pluggy, mas não encontrado no banco local'}), 200
+
+        # Log e retorno detalhado do erro na API Pluggy
+        logging.error(f"Erro inesperado na API Pluggy ao remover item {item_id}: {response.status_code} - {response.text}")
+        return jsonify({'status': 'error', 'message': f"Erro na API Pluggy: {response.text}"}), 500
+
+    except Exception as e:
+        logging.exception(f"Erro ao deletar banco: {e}")
+        return jsonify({'status': 'error', 'message': f"Erro interno: {e}"}), 500
+
+
+@app.route('/connected_banks', methods=['GET'])
+def connected_banks():
+    print(pluggy_client.access_token)
+    if 'loggedin' not in session:
+        return jsonify({'status': 'error', 'message': 'Unauthorized'}), 401
+
+    try:
+        user_id = session['id']  # Obtém o ID do usuário logado
+        cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
+
+        # Busca os item_ids relacionados ao usuário logado
+        cursor.execute("""
+            SELECT item_id FROM jv_items
+            WHERE client_user_id = %s
+        """, (user_id,))
+        items = cursor.fetchall()
+        cursor.close()
+        
+        if not items:
+            return jsonify({'status': 'success', 'data': [], 'message': 'Nenhum banco conectado encontrado.'}), 200
+
+        # Lista de itens com informações dos conectores
+        connected_banks = []
+
+        for item in items:
+            item_id = item['item_id']
+            # Aqui estamos passando o item_id obtido do banco para a API
+            url = f"https://api.pluggy.ai/items/{item_id}"  # URL da API da Pluggy para obter os detalhes do item
+            headers = {
+                "accept": "application/json",
+                "X-API-KEY": pluggy_client.access_token  # Substitua com a sua chave de API da Pluggy
+            }
+
+            # Faz a requisição para obter os detalhes do item na API da Pluggy
+            response = requests.get(url, headers=headers)
+            if response.status_code == 200:
+                pluggy_item_data = response.json()
+                
+                # Adiciona os dados do item à lista de conectados
+                connected_banks.append({
+                    'item_id': item_id,
+                    'status': pluggy_item_data.get('status', 'Status Desconhecido'),
+                    'connector': {
+                        'imageUrl': pluggy_item_data.get('connector', {}).get('imageUrl', None),
+                        'name': pluggy_item_data.get('connector',{}).get('name', 'Banco Desconhecido'),
+                        'institution_url': pluggy_item_data.get('connector',{}).get('institutionUrl', '#'),
+                    }
+                })
+            else:
+                connected_banks.append({'item_id': item_id, 'error': 'Erro ao buscar dados na Pluggy'})
+
+        return jsonify({'status': 'success', 'data': connected_banks}), 200
+
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': f'Erro interno: {str(e)}'}), 500
+
+@app.route('/user_accounts', methods=['GET'])
+def get_user_accounts():
+    if 'loggedin' not in session:
+        return jsonify({'status': 'error', 'message': 'Unauthorized'}), 401
+
+    try:
+        user_id = session['id']  # Obtém o ID do usuário logado
+        cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
+
+        # Busca os item_ids relacionados ao usuário logado
+        cursor.execute("""
+            SELECT item_id FROM jv_items
+            WHERE client_user_id = %s
+        """, (user_id,))
+        items = cursor.fetchall()
+
+        if not items:
+            cursor.close()
+            return jsonify({'status': 'success', 'data': [], 'message': 'Nenhuma conta encontrada.'}), 200
+
+        user_accounts = []
+
+        for item in items:
+            item_id = item['item_id']
+            # Faz a requisição para obter as contas associadas ao item
+            url = f"https://api.pluggy.ai/accounts?itemId={item_id}"
+            headers = {
+                "accept": "application/json",
+                "X-API-KEY": pluggy_client.access_token  
+            }
+
+            response = requests.get(url, headers=headers)
+            if response.status_code == 200:
+                accounts_data = response.json().get('results', [])
+                
+                # Adiciona cada conta encontrada à lista de contas do usuário
+                for account in accounts_data:
+                    account_id = account['id']
+                    name = account.get('name', 'Conta Desconhecida')
+                    balance = account.get('balance', 0.0)
+                    currency = account.get('currencyCode', 'BRL')
+                    created_at_raw = account.get('createdAt', None)
+                    owner = account.get('owner', None)
+                    account_type = account['type']
+                    credit_data = account.get('creditData', {})
+
+                    # Converte o campo created_at para o formato compatível com MySQL
+                    created_at = None
+                    if created_at_raw:
+                        try:
+                            created_at = datetime.strptime(created_at_raw, "%Y-%m-%dT%H:%M:%S.%fZ")
+                        except ValueError:
+                            # Caso o milissegundos não seja fornecido
+                            created_at = datetime.strptime(created_at_raw, "%Y-%m-%dT%H:%M:%SZ")
+
+                    # Insere os dados da conta na tabela jv_accounts
+                    cursor.execute("""
+                        INSERT INTO jv_accounts (account_id, item_id, type, name, balance, currency, created_at, owner)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                        ON DUPLICATE KEY UPDATE
+                        name = VALUES(name),
+                        balance = VALUES(balance),
+                        currency = VALUES(currency),
+                        created_at = VALUES(created_at),
+                        owner = VALUES(owner),
+                        type = VALUES(type)
+                    """, (account_id, item_id, account_type, name, balance, currency, created_at, owner))
+                    
+                    mysql.connection.commit()
+
+                    # Adiciona ao retorno
+                    user_accounts.append({
+                        'account_id': account_id,
+                        'item_id': item_id,
+                        'type': account_type,
+                        'name': name,
+                        'balance': balance,
+                        'currency': currency,
+                        'created_at': created_at,
+                        'owner': owner,
+                        'creditData': credit_data
+                    })
+            else:
+                user_accounts.append({'item_id': item_id, 'error': 'Erro ao buscar contas na Pluggy'})
+
+        cursor.close()
+        return jsonify({'status': 'success', 'data': user_accounts}), 200
+
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': f'Erro interno: {str(e)}'}), 500
 
 @app.route('/get_transactions/<item_id>', methods=['GET'])
 def get_transactions(item_id):
@@ -1116,239 +1187,81 @@ def get_transactions(item_id):
             return jsonify({'error': str(e)}), 500
     return jsonify({'error': 'Unauthorized'}), 401
 
-@app.route('/get_investments/<item_id>', methods=['GET'])
-def get_investments(item_id):
-    try:
-        headers = {"X-API-KEY": pluggy_client.access_token}
-        response = requests.get(
-            f"{pluggy_client.BASE_URL}/investments", 
-            headers=headers,
-            params={"itemId": item_id}
-        )
-        
-        return jsonify({
-            "status": "success",
-            "investments": response.json()
-        })
-    except Exception as e:
-        return jsonify({
-            "status": "error",
-            "message": str(e)
-        }), 500
-
-@app.route('/get_identity/<item_id>', methods=['GET'])
-def get_identity(item_id):
-    try:
-        headers = {"X-API-KEY": pluggy_client.access_token}
-        response = requests.get(
-            f"{pluggy_client.BASE_URL}/identity", 
-            headers=headers,
-            params={"itemId": item_id}
-        )
-        
-        return jsonify({
-            "status": "success",
-            "identity": response.json()
-        })
-    except Exception as e:
-        return jsonify({
-            "status": "error",
-            "message": str(e)
-        }), 500
-    
-
-
 #PROCESSA TRANSAÇOES E ARMAZENA NA DB
 
-# Função para processar transações e salvar no banco de dados
-def process_transactions(item_id):
-    try:
-        transactions = pluggy_client.get_transactions(item_id)
-        
-        cursor = mysql.connection.cursor()
-        
-        for transaction in transactions.get('results', []):
-            if transaction['amount'] > 0:
-                # É uma receita
-                cursor.execute("""
-                    INSERT INTO jv_receitas (id, descricao_rec, valor_rec, data_rec, categoria)
-                    VALUES (%s, %s, %s, %s, %s)
-                    ON DUPLICATE KEY UPDATE
-                    valor_rec = VALUES(valor_rec),
-                    categoria = VALUES(categoria)
-                """, (
-                    session['id'],
-                    transaction['description'],
-                    transaction['amount'],
-                    transaction['date'],
-                    transaction.get('category', 'Outros')
-                ))
-            else:
-                # É uma despesa
-                cursor.execute("""
-                    INSERT INTO jv_despesas (id, descricao_des, valor_des, data_des, categoria)
-                    VALUES (%s, %s, %s, %s, %s)
-                    ON DUPLICATE KEY UPDATE
-                    valor_des = VALUES(valor_des),
-                    categoria = VALUES(categoria)
-                """, (
-                    session['id'],
-                    transaction['description'],
-                    abs(transaction['amount']),
-                    transaction['date'],
-                    transaction.get('category', 'Outros')
-                ))
-        
-        mysql.connection.commit()
-        cursor.close()
-        return True
-    except Exception as e:
-        print(f"Erro ao processar transações: {e}")
-        return False
+# Função para processar transações e salvar no banco de dado
 
-@app.route('/sync_transactions/<item_id>', methods=['POST'])
-def sync_transactions(item_id):
+@app.route('/sync_transactions', methods=['GET'])
+def sync_transactions():
     if 'loggedin' not in session:
-        return jsonify({
-            "status": "error",
-            "message": "Usuário não autenticado"
-        }), 401
+        return jsonify({'status': 'error', 'message': 'Unauthorized'}), 401
 
     try:
-        # Obter transações do Pluggy
-        headers = {"X-API-KEY": pluggy_client.access_token}
-        transactions_response = requests.get(
-            f"{pluggy_client.BASE_URL}/transactions", 
-            headers=headers,
-            params={"itemId": item_id}
-        )
-        
-        transactions = transactions_response.json().get('results', [])
-        
-        cursor = mysql.connection.cursor()
-        
-        for transaction in transactions:
-            if transaction['amount'] > 0:
-                # É uma receita
-                cursor.execute(""" 
-                    INSERT INTO jv_receitas (id, descricao_rec, valor_rec, data_rec, categoria)
-                    VALUES (%s, %s, %s, %s, %s)
-                    ON DUPLICATE KEY UPDATE
-                    valor_rec = VALUES(valor_rec),
-                    categoria = VALUES(categoria)
-                """, (
-                    session['id'],
-                    transaction['description'],
-                    transaction['amount'],
-                    transaction['date'],
-                    transaction.get('category', 'Outros')
-                ))
-            else:
-                # É uma despesa
-                cursor.execute(""" 
-                    INSERT INTO jv_despesas (id, descricao_des, valor_des, data_des, categoria)
-                    VALUES (%s, %s, %s, %s, %s)
-                    ON DUPLICATE KEY UPDATE
-                    valor_des = VALUES(valor_des),
-                    categoria = VALUES(categoria)
-                """, (
-                    session['id'],
-                    transaction['description'],
-                    abs(transaction['amount']),
-                    transaction['date'],
-                    transaction.get('category', 'Outros')
-                ))
-        
+        user_id = session['id']  # ID do usuário logado
+        cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
+
+        # Buscar contas associadas ao usuário
+        cursor.execute("""
+            SELECT account_id FROM jv_accounts
+            WHERE user_id = %s
+        """, (user_id,))
+        accounts = cursor.fetchall()
+
+        if not accounts:
+            cursor.close()
+            return jsonify({'status': 'success', 'data': [], 'message': 'Nenhuma conta encontrada para sincronizar.'}), 200
+
+        synced_transactions = []
+        for account in accounts:
+            account_id = account['account_id']
+
+            # Requisição para obter transações do Pluggy
+            url = f"https://api.pluggy.ai/transactions?accountId={account_id}"
+            headers = {
+                "accept": "application/json",
+                "X-API-KEY": pluggy_client.access_token  # Token de API
+            }
+            response = requests.get(url, headers=headers)
+
+            if response.status_code == 200:
+                transactions = response.json().get('results', [])
+                for transaction in transactions:
+                    amount = transaction['amount']
+                    transaction_type = 'receitas' if amount > 0 else 'despesas'
+                    table_name = f"jv_{transaction_type}"
+
+                    # Insere transações no banco
+                    cursor.execute(f"""
+                        INSERT INTO {table_name} (id, account_id, descricao, valor, data, categoria)
+                        VALUES (%s, %s, %s, %s, %s, %s)
+                        ON DUPLICATE KEY UPDATE
+                        valor = VALUES(valor),
+                        categoria = VALUES(categoria)
+                    """, (
+                        user_id,
+                        account_id,
+                        transaction['description'],
+                        abs(amount),
+                        transaction['date'],
+                        transaction.get('category', 'Outros')
+                    ))
+
+                    synced_transactions.append({
+                        'account_id': account_id,
+                        'description': transaction['description'],
+                        'amount': amount,
+                        'date': transaction['date'],
+                        'category': transaction.get('category', 'Outros')
+                    })
+
         mysql.connection.commit()
         cursor.close()
-        return jsonify({"status": "success", "message": "Transações sincronizadas com sucesso"})
+        return jsonify({'status': 'success', 'data': synced_transactions, 'message': 'Transações sincronizadas com sucesso!'}), 200
+
     except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
+        return jsonify({'status': 'error', 'message': f'Erro interno: {str(e)}'}), 500
+
     
-@app.route('/get_connected_banks')
-def get_connected_banks(): 
-    if 'loggedin' in session: 
-        try: 
-            headers = {"X-API-KEY": pluggy_client.access_token} 
-            response = requests.get( 
-                f"{pluggy_client.BASE_URL}/items",  # Corrigido para usar BASE_URL 
-                headers=headers 
-            ) 
-
-            items = response.json().get('results', []) 
-            connected_banks = [] 
-
-            for item in items: 
-                connector_response = requests.get( 
-                    f"{pluggy_client.BASE_URL}/connectors/{item['connectorId']}", 
-                    headers=headers 
-                ) 
-                connector = connector_response.json() 
-
-                connected_banks.append({ 
-                    'id': item['id'], 
-                    'name': connector['name'], 
-                    'imageUrl': connector['imageUrl'], 
-                    'lastUpdated': item['updatedAt'] 
-                }) 
-
-            return jsonify(connected_banks) 
-        except Exception as e: 
-            return jsonify({'error': str(e)}), 500 
-    return jsonify({'error': 'Unauthorized'}), 401 
-
-
-@app.route('/refresh_connection/<item_id>', methods=['POST'])
-def refresh_connection(item_id):
-    if 'loggedin' in session:
-        try:
-            headers = {"X-API-KEY": pluggy_client.access_token}
-            response = requests.patch(
-                f"{pluggy_client.base_url}/items/{item_id}", 
-                headers=headers
-            )
-            return jsonify({'success': True, 'item': response.json()})
-        except Exception as e:
-            return jsonify({'error': str(e)}), 500
-    return jsonify({'error': 'Unauthorized'}), 401
-
-@app.route('/remove_connection/<item_id>', methods=['DELETE'])
-def remove_connection(item_id):
-    if 'loggedin' in session:
-        try:
-            headers = {"X-API-KEY": pluggy_client.access_token}
-            response = requests.delete(
-                f"{pluggy_client.base_url}/items/{item_id}", 
-                headers=headers
-            )
-            return jsonify({'success': True})
-        except Exception as e:
-            return jsonify({'error': str(e)}), 500
-    return jsonify({'error': 'Unauthorized'}), 401
-        
-# Rota para verificar o status da conexão
-@app.route('/check_connection_status/<item_id>')
-def check_connection_status(item_id):
-    if 'loggedin' in session:
-        try:
-            headers = {"X-API-KEY": pluggy_client.access_token}
-            response = requests.get(
-                f"{pluggy_client.base_url}/items/{item_id}", 
-                headers=headers
-            )
-            item = response.json()
-            
-            # Verificar status específicos
-            status_info = {
-                'status': item['status'],
-                'lastUpdated': item['updatedAt'],
-                'error': item.get('error', None)
-            }
-            
-            return jsonify(status_info)
-        except Exception as e:
-            return jsonify({'error': str(e)}), 500
-    return jsonify({'error': 'Unauthorized'}), 401
 
 # Rota para atualizar transações
 @app.route('/update_transactions/<item_id>', methods=['POST'])
