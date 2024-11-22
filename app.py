@@ -2,9 +2,9 @@ import base64
 from http import client
 from io import BytesIO
 import json
+import csv
 from PIL import Image
-from flask import Flask, render_template, request, redirect, url_for, session
-from flask import jsonify
+from flask import Flask, render_template, request, jsonify, redirect, url_for, session, make_response
 from flask_wtf import FlaskForm
 from pydantic_core import Url
 from wtforms import FileField, SubmitField
@@ -27,7 +27,7 @@ from cryptography.hazmat.primitives import serialization
 import plotly.graph_objs as go
 import plotly.io as pio
 import pandas as pd
-import requests
+import requests, random
 import MySQLdb.cursors
 import re
 import bcrypt
@@ -318,6 +318,7 @@ def home():
     else:
         return redirect(url_for('login'))
 
+
 @app.route('/profile')
 def profile():
     # Checa se o usuario esta logado
@@ -560,6 +561,10 @@ def relatorio():
         cur.execute("SELECT * FROM jv_despesas WHERE id = %s AND account_id is NULL", (session['id'],))
         despesas_g = cur.fetchall()
 
+        total_receitas_count = (len(receitas) + len(receitas_g))
+        total_despesas_count = (len(despesas) + len(despesas_g))
+        print(total_despesas_count)
+        print(total_receitas_count)
         # Inicializar dicionários para armazenar totais mensais
         receitas_mensais = {month: 0 for month in range(1, 13)}
         despesas_mensais = {month: 0 for month in range(1, 13)}
@@ -607,7 +612,7 @@ def relatorio():
 
         # Gráficos Plotly
         fig_fluxo = go.Figure()
-        fig_fluxo.add_trace(go.Scatter(x=months, y=inflows, mode='lines+markers', name='Receitas', line=dict(color='blue')))
+        fig_fluxo.add_trace(go.Scatter(x=months, y=inflows, mode='lines+markers', name='Receitas', line=dict(color='green')))
         fig_fluxo.add_trace(go.Scatter(x=months, y=outflows, mode='lines+markers', name='Despesas', line=dict(color='red')))
         fig_fluxo.update_layout(title="Fluxo de Caixa (Mensal)", xaxis_title="Meses", yaxis_title="Valores (R$)", yaxis=dict(tickformat="R$,.2f"))
 
@@ -624,22 +629,152 @@ def relatorio():
         ))
         fig_saldo.update_layout(height=300)
 
+        # Gráfico para a contagem total de receitas
+        fig_contagem_receitas = go.Figure()
+        fig_contagem_receitas.add_trace(go.Indicator(
+            mode="number",
+            value=total_receitas_count,
+            title="Contagem Total de Receitas",
+        ))
+        fig_contagem_receitas.update_layout(height=300)
+
+        # Gráfico para a contagem total de despesas
+        fig_contagem_despesas = go.Figure()
+        fig_contagem_despesas.add_trace(go.Indicator(
+            mode="number",
+            value=total_despesas_count,
+            title="Contagem Total de Despesas",
+        ))
+        fig_contagem_despesas.update_layout(height=300)
+
         # Converter os gráficos para JSON
         plot_fluxo = fig_fluxo.to_json()
         plot_evolucao = fig_evolucao.to_json()
         plot_saldo = fig_saldo.to_json()
+        plot_contagem_receitas = fig_contagem_receitas.to_json()
+        plot_contagem_despesas = fig_contagem_despesas.to_json()  
+
+        # Calcular gastos por categoria
+        cur.execute("""
+            SELECT categoria, SUM(valor_des) as total
+            FROM jv_despesas
+            WHERE id = %s
+            GROUP BY categoria
+        """, (session['id'],))
+        gastos_por_categoria = cur.fetchall()
+
+        # Calcular receitas por categoria
+        cur.execute("""
+            SELECT categoria, SUM(valor_rec) as total
+            FROM jv_receitas
+            WHERE id = %s
+            GROUP BY categoria
+        """, (session['id'],))
+        receitas_por_categoria = cur.fetchall()
+
+        def gerar_cor_aleatoria():
+            """Gera uma cor aleatória em formato hexadecimal."""
+            return "#{:06x}".format(random.randint(0, 0xFFFFFF))
+
+        # Preparar dados para o gráfico de pizza de gastos
+        categorias_gastos = [item['categoria'] for item in gastos_por_categoria]
+        valores_gastos = [item['total'] for item in gastos_por_categoria]
+
+        # Gerar uma lista de cores aleatórias para as categorias de gastos
+        cores_gastos = [gerar_cor_aleatoria() for _ in categorias_gastos]
+
+        fig_gastos_categoria = go.Figure(data=[go.Pie(labels=categorias_gastos, values=valores_gastos, marker=dict(colors=cores_gastos))])
+        fig_gastos_categoria.update_layout(title="Gastos por Categoria")
+
+        # Preparar dados para o gráfico de pizza de receitas
+        categorias_receitas = [item['categoria'] for item in receitas_por_categoria]
+        valores_receitas = [item['total'] for item in receitas_por_categoria]
+
+        # Gerar uma lista de cores aleatórias para as categorias de receitas
+        cores_receitas = [gerar_cor_aleatoria() for _ in categorias_receitas]
+
+        fig_receitas_categoria = go.Figure(data=[go.Pie(labels=categorias_receitas, values=valores_receitas, marker=dict(colors=cores_receitas))])
+        fig_receitas_categoria.update_layout(title="Receitas por Categoria")
+
+        # Converter os gráficos para JSON
+        plot_gastos_categoria = fig_gastos_categoria.to_json()
+        plot_receitas_categoria = fig_receitas_categoria.to_json()
 
         return render_template('relatorio.html',
-                               total_receitas=total_receitas,
-                               total_despesas=total_despesas,
-                               saldo_total=saldo_total,
-                               saldo_conta=saldo_conta_value,
-                               plot_fluxo=plot_fluxo,
-                               plot_evolucao=plot_evolucao,
-                               plot_saldo=plot_saldo,
-                               datetime=datetime)
+                       total_receitas=total_receitas,
+                       total_despesas=total_despesas,
+                       saldo_total=saldo_total,
+                       saldo_conta=saldo_conta_value,
+                       plot_fluxo=plot_fluxo,
+                       plot_evolucao=plot_evolucao,
+                       plot_saldo=plot_saldo,
+                       plot_gastos_categoria=plot_gastos_categoria,
+                       plot_receitas_categoria=plot_receitas_categoria,
+                       plot_contagem_receitas=plot_contagem_receitas,  # Adicionado
+                       plot_contagem_despesas=plot_contagem_despesas,  # Adicionado
+                       datetime=datetime)
     
     return redirect(url_for('login'))
+
+@app.route('/sua_rota_backend', methods=['POST'])
+def processar_pergunta():
+    if 'loggedin' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    data = request.json
+    pergunta = data.get('pergunta', '').lower()
+
+    cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
+
+    try:
+        if "gasto obtido pela categoria" in pergunta:
+            categoria = pergunta.split('"')[1]  # Extrai a categoria da pergunta
+            cursor.execute("""
+                SELECT SUM(valor_des) as total
+                FROM jv_despesas
+                WHERE categoria = %s AND id = %s
+            """, (categoria, session['id']))
+            resultado = cursor.fetchone()
+            resposta = f"O gasto total na categoria '{categoria}' é R$ {resultado['total']:.2f}" if resultado['total'] else "Nenhum gasto encontrado nesta categoria."
+
+        elif "receita total do mês passado" in pergunta:
+            cursor.execute("""
+                SELECT SUM(valor_rec) as total
+                FROM jv_receitas
+                WHERE MONTH(data_rec) = MONTH(CURRENT_DATE - INTERVAL 1 MONTH) AND id = %s
+            """, (session['id'],))
+            resultado = cursor.fetchone()
+            resposta = f"A receita total do mês passado é R$ {resultado['total']:.2f}" if resultado['total'] else "Nenhuma receita encontrada para o mês passado."
+
+        elif "despesas do último ano" in pergunta:
+            cursor.execute("""
+                SELECT SUM(valor_des) as total
+                FROM jv_despesas
+                WHERE YEAR(data_des) = YEAR(CURRENT_DATE - INTERVAL 1 YEAR) AND id = %s
+            """, (session['id'],))
+            resultado = cursor.fetchone()
+            resposta = f"As despesas totais do último ano são R$ {resultado['total']:.2f}" if resultado['total'] else "Nenhuma despesa encontrada para o último ano."
+
+        elif "saldo atual" in pergunta:
+            cursor.execute("""
+                SELECT (SELECT SUM(valor_rec) FROM jv_receitas WHERE id = %s) - (SELECT SUM(valor_des) FROM jv_despesas WHERE id = %s) as saldo
+            """, (session['id'], session['id']))
+            resultado = cursor.fetchone()
+            
+            # Verifica se resultado['saldo'] é None antes de formatar
+            saldo = resultado['saldo'] if resultado['saldo'] is not None else 0.0
+            resposta = f"O saldo atual é R$ {saldo:.2f}"
+
+        else:
+            resposta = "Desculpe, não entendi a pergunta."
+
+    except Exception as e:
+        resposta = f"Ocorreu um erro ao processar a pergunta: {str(e)}"
+
+    finally:
+        cursor.close()
+
+    return jsonify({'resposta': resposta})
 
  # ============================== EXTRATO BANCARIO ===============================
     
@@ -720,6 +855,68 @@ def extrato():
         username = user['nome_user'] if user else 'Usuário'
         
         return render_template('extrato.html', transacoes=transacoes, username=username)
+    else:
+        return redirect(url_for('login'))
+
+@app.route('/download_csv')
+def download_csv():
+    if 'loggedin' in session and 'mfa_validated' in session and session['mfa_validated']:
+        cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
+
+        # Buscar transações como você fez na rota /extrato
+        cursor.execute("SELECT * FROM jv_receitas WHERE id = %s AND account_id is NULL", (session['id'],))
+        receitas_g = cursor.fetchall()
+
+        cursor.execute("SELECT * FROM jv_despesas WHERE id = %s AND account_id is NULL", (session['id'],))
+        despesas_g = cursor.fetchall()
+
+        cursor.execute("""
+            SELECT r.*
+            FROM jv_receitas r
+            JOIN jv_accounts a ON r.account_id = a.account_id
+            WHERE r.id = %s AND a.type = 'BANK'
+        """, (session['id'],))
+        receitas = cursor.fetchall()
+
+        cursor.execute("""
+            SELECT d.*
+            FROM jv_despesas d
+            JOIN jv_accounts a ON d.account_id = a.account_id
+            WHERE d.id = %s AND a.type = 'BANK'
+        """, (session['id'],))
+        despesas = cursor.fetchall()
+
+        # Combinar receitas e despesas em uma única lista
+        transacoes = []
+        for receita in receitas + receitas_g:
+            transacoes.append({
+                'tipo': 'Receita',
+                'descricao': receita['descricao_rec'],
+                'valor': receita['valor_rec'],
+                'data': receita['data_rec'],
+                'categoria': receita['categoria']
+            })
+        for despesa in despesas + despesas_g:
+            transacoes.append({
+                'tipo': 'Despesa',
+                'descricao': despesa['descricao_des'],
+                'valor': despesa['valor_des'],
+                'data': despesa['data_des'],
+                'categoria': despesa['categoria']
+            })
+
+        # Criar o CSV
+        output = make_response()
+        output.headers["Content-Disposition"] = "attachment; filename=extrato.csv"
+        output.headers["Content-type"] = "text/csv"
+
+        writer = csv.writer(output.stream)
+        writer.writerow(['Tipo', 'Descrição', 'Valor', 'Data', 'Categoria'])  # Cabeçalho
+
+        for transacao in transacoes:
+            writer.writerow([transacao['tipo'], transacao['descricao'], transacao['valor'], transacao['data'], transacao['categoria']])
+
+        return output
     else:
         return redirect(url_for('login'))
     
