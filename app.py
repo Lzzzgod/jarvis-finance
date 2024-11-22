@@ -1,9 +1,12 @@
 import base64
+from http import client
 from io import BytesIO
+import json
 from PIL import Image
 from flask import Flask, render_template, request, redirect, url_for, session
 from flask import jsonify
 from flask_wtf import FlaskForm
+from pydantic_core import Url
 from wtforms import FileField, SubmitField
 from flask_mysqldb import MySQL
 from authlib.integrations.flask_client import OAuth
@@ -11,8 +14,16 @@ from authlib.common.security import generate_token
 from functools import lru_cache
 from flask_sslify import SSLify
 from datetime import datetime, timedelta
+from calendar import monthrange
 from prophet import Prophet
 from dotenv import load_dotenv
+from flasgger import Swagger
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives import serialization
 import plotly.graph_objs as go
 import plotly.io as pio
 import pandas as pd
@@ -26,7 +37,9 @@ import os
 import secrets
 import ssl
 import logging
-import json
+import streamlit as st
+import matplotlib.pyplot as plt
+import numpy as np
 
 app = Flask(__name__, static_folder='static')
 sslify = SSLify(app)
@@ -282,15 +295,24 @@ def home():
         cursor.execute('SELECT nome_user FROM jv_user WHERE id = %s', (session['id'],))
         user_name = cursor.fetchone()['nome_user']
         
-        # Consulta as transações do usuário
         cursor.execute("SELECT * FROM jv_receitas WHERE id = %s", (session['id'],))
         receitas = cursor.fetchall()
         cursor.execute("SELECT * FROM jv_despesas WHERE id = %s", (session['id'],))
         despesas = cursor.fetchall()
+
+        cursor.execute("""SELECT d.*
+                        FROM jv_despesas d
+                        JOIN jv_accounts a ON d.account_id = a.account_id
+                        WHERE d.id = %s AND a.type = 'CREDIT'
+                        ORDER BY d.data_des DESC""", (session['id'],))
+        despesas_cartao = cursor.fetchall()
+        
         
         # Calcula o saldo geral
-        saldo = sum(float(r['valor_rec']) for r in receitas) - sum(float(d['valor_des']) for d in despesas)
-        
+        recxdes = sum(float(r['valor_rec']) for r in receitas) - sum(float(d['valor_des']) for d in despesas)
+        saldo = recxdes + sum(float(d['valor_des_c']) for d in despesas_cartao)
+
+
         # Renderiza a página com o saldo geral
         return render_template('home.html', username=user_name, saldo=saldo)
     else:
@@ -469,11 +491,12 @@ def adicionar_receita():
         valor_rec = request.form['valor_rec']
         data_rec = request.form['data_rec']
         categoria = request.form['categoria']
+        account_id = None
 
         # Insere a receita no banco de dados
         cur = mysql.connection.cursor()
-        cur.execute("INSERT INTO jv_receitas (id, descricao_rec, valor_rec, data_rec, categoria) VALUES (%s, %s, %s, %s, %s)", 
-                    (session['id'], descricao_rec, valor_rec, data_rec, categoria))
+        cur.execute("INSERT INTO jv_receitas (id, descricao_rec, valor_rec, data_rec, categoria, account_id) VALUES (%s, %s, %s, %s, %s, %s)", 
+                    (session['id'], descricao_rec, valor_rec, data_rec, categoria, account_id))
         mysql.connection.commit()
         cur.close()
 
@@ -489,11 +512,12 @@ def adicionar_despesa():
         valor_des = request.form['valor_des']
         data_des = request.form['data_des']
         categoria = request.form['categoria']
+        account_id = None
 
         # Insere a despesa no banco de dados
         cur = mysql.connection.cursor()
-        cur.execute("INSERT INTO jv_despesas (id, descricao_des, valor_des, data_des, categoria) VALUES (%s, %s, %s, %s, %s)", 
-                    (session['id'], descricao_des, valor_des, data_des, categoria))
+        cur.execute("INSERT INTO jv_despesas (id, descricao_des, valor_des, data_des, categoria, account_id) VALUES (%s, %s, %s, %s, %s, %s )", 
+                    (session['id'], descricao_des, valor_des, data_des, categoria, account_id))
         mysql.connection.commit()
         cur.close()
 
@@ -501,155 +525,158 @@ def adicionar_despesa():
     else:
         # Se o usuário não estiver logado, redireciona para a página de login
         return redirect(url_for('login'))
+    
+@app.template_filter('formata_moeda')
+def formata_moeda(valor):
+    return f"R$ {valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 @app.route('/relatorio')
 def relatorio():
     if 'loggedin' in session and 'mfa_validated' in session and session['mfa_validated']:
         cur = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
+        
+        ano_atual = datetime.now().year
 
-        # Buscar receitas
-        cur.execute("SELECT * FROM jv_receitas WHERE id = %s", (session['id'],))
+        # Buscar receitas do ano atual vinculadas a contas do tipo 'BANK'
+        cur.execute("""
+            SELECT r.*
+            FROM jv_receitas r
+            JOIN jv_accounts a ON r.account_id = a.account_id
+            WHERE r.id = %s AND a.type = 'BANK' AND YEAR(r.data_rec) = %s
+        """, (session['id'], ano_atual))
         receitas = cur.fetchall()
 
-        # Buscar despesas
-        cur.execute("SELECT * FROM jv_despesas WHERE id = %s", (session['id'],))
+        # Buscar despesas do ano atual vinculadas a contas do tipo 'BANK'
+        cur.execute("""
+            SELECT d.*
+            FROM jv_despesas d
+            JOIN jv_accounts a ON d.account_id = a.account_id
+            WHERE d.id = %s AND a.type = 'BANK' AND YEAR(d.data_des) = %s
+        """, (session['id'], ano_atual))
         despesas = cur.fetchall()
 
-        # Inicializar dicionários
-        receitas_data = {}
-        despesas_data = {}
-        categorias_receitas_data = {}
-        categorias_despesas_data = {}
+        cur.execute("SELECT * FROM jv_receitas WHERE id = %s AND account_id is NULL", (session['id'],))
+        receitas_g = cur.fetchall()
+        cur.execute("SELECT * FROM jv_despesas WHERE id = %s AND account_id is NULL", (session['id'],))
+        despesas_g = cur.fetchall()
 
-        # Preparar dados para gráficos
+        # Inicializar dicionários para armazenar totais mensais
+        receitas_mensais = {month: 0 for month in range(1, 13)}
+        despesas_mensais = {month: 0 for month in range(1, 13)}
+
+        # Processar receitas e despesas
         for item in receitas:
-            if item['data_rec'] and item['valor_rec'] is not None:
-                data = item['data_rec'].strftime('%Y-%m-%d') if isinstance(item['data_rec'], datetime) else str(item['data_rec'])
-                valor = float(item['valor_rec'])
-                receitas_data[data] = receitas_data.get(data, 0) + valor
-                categoria = item['categoria'] if item['categoria'] else 'Sem categoria'
-                categorias_receitas_data[categoria] = categorias_receitas_data.get(categoria, 0) + valor
+            mes = item['data_rec'].month 
+            valor = float(item['valor_rec'])
+            receitas_mensais[mes] += valor
 
         for item in despesas:
-            if item['data_des'] and item['valor_des'] is not None:
-                data = item['data_des'].strftime('%Y-%m-%d') if isinstance(item['data_des'], datetime) else str(item['data_des'])
-                valor = float(item['valor_des'])
-                despesas_data[data] = despesas_data.get(data, 0) + valor
-                categoria = item['categoria'] if item['categoria'] else 'Sem categoria'
-                categorias_despesas_data[categoria] = categorias_despesas_data.get(categoria, 0) + valor
+            mes = item['data_des'].month  
+            valor = float(item['valor_des'])
+            despesas_mensais[mes] += valor
 
-        # Ordenar as datas
-        receitas_data = dict(sorted(receitas_data.items()))
-        despesas_data = dict(sorted(despesas_data.items()))
+        for item in receitas_g:
+            mes = item['data_rec'].month  
+            valor = float(item['valor_rec'])
+            receitas_mensais[mes] += valor
 
-        # Preparar dados para o Prophet
-        df = pd.DataFrame(list(receitas_data.items()), columns=['ds', 'y'])
-        df['ds'] = pd.to_datetime(df['ds'])
-        df['y'] = df['y'].astype(float)
-        df = df.dropna()
+        for item in despesas_g:
+            mes = item['data_des'].month  
+            valor = float(item['valor_des'])
+            despesas_mensais[mes] += valor
 
-        # Inicializar variáveis para o caso de não haver dados suficientes
-        plot_json = "{}"
-        previsao_proximo_mes = 0
-        variacao_percentual = 0
+        # Listas ordenadas por mês
+        months = [datetime(ano_atual, mes, 1).strftime('%b') for mes in range(1, 13)]  
+        inflows = [receitas_mensais[mes] for mes in range(1, 13)]
+        outflows = [despesas_mensais[mes] for mes in range(1, 13)]
+        balance = [i - o for i, o in zip(inflows, outflows)]
 
-        if not df.empty and len(df) >= 2:
-            try:
-                # Criar e treinar o modelo
-                model = Prophet(yearly_seasonality=False,
-                                weekly_seasonality=False,
-                                daily_seasonality=True,
-                                seasonality_mode='additive')
-                model.fit(df)
+        # Totais
+        total_receitas = sum(inflows)
+        total_despesas = sum(outflows)
+        saldo_total = total_receitas - total_despesas
 
-                # Fazer previsões
-                future = model.make_future_dataframe(periods=30)
-                forecast = model.predict(future)
+        
+        cur.execute("""
+             SELECT balance FROM jv_accounts
+            JOIN jv_items ON jv_accounts.item_id = jv_items.item_id
+            WHERE jv_items.client_user_id = %s AND jv_accounts.type = 'BANK'
+        """, (session['id'],))
+        saldo_conta = cur.fetchone()
+        saldo_conta_value = saldo_conta['balance'] if saldo_conta else 0.0
 
-                # Criar gráfico com Plotly
-                fig = go.Figure()
+        # Gráficos Plotly
+        fig_fluxo = go.Figure()
+        fig_fluxo.add_trace(go.Scatter(x=months, y=inflows, mode='lines+markers', name='Receitas', line=dict(color='blue')))
+        fig_fluxo.add_trace(go.Scatter(x=months, y=outflows, mode='lines+markers', name='Despesas', line=dict(color='red')))
+        fig_fluxo.update_layout(title="Fluxo de Caixa (Mensal)", xaxis_title="Meses", yaxis_title="Valores (R$)", yaxis=dict(tickformat="R$,.2f"))
 
-                # Dados históricos
-                fig.add_trace(go.Scatter(x=df['ds'], y=df['y'], name='Dados históricos', mode='markers'))
+        fig_evolucao = go.Figure()
+        fig_evolucao.add_trace(go.Bar(x=months, y=balance, name='Balanço', marker_color=['green' if b > 0 else 'red' for b in balance]))
+        fig_evolucao.update_layout(title="Evolução do Balanço", xaxis_title="Meses", yaxis_title="Lucro/Prejuízo (R$)", yaxis=dict(tickformat="R$,.2f"))
 
-                # Linha de previsão
-                fig.add_trace(go.Scatter(x=forecast['ds'], y=forecast['yhat'], name='Previsão', line=dict(color='blue')))
+        fig_saldo = go.Figure()
+        fig_saldo.add_trace(go.Indicator(
+            mode="number+delta",
+            value=saldo_total + saldo_conta_value,
+            title="Saldo Final",
+            delta={'reference': saldo_conta_value, 'valueformat': "R$,.2f"},
+        ))
+        fig_saldo.update_layout(height=300)
 
-                # Intervalo de confiança
-                fig.add_trace(go.Scatter(
-                    x=forecast['ds'].tolist() + forecast['ds'].tolist()[::-1],
-                    y=forecast['yhat_upper'].tolist() + forecast['yhat_lower'].tolist()[::-1],
-                    fill='toself',
-                    fillcolor='rgba(144, 238, 144, 0.3)',
-                    line=dict(color='rgba(255,255,255,0)'),
-                    hoverinfo="skip",
-                    showlegend=True,
-                    name='Intervalo de confiança'
-                ))
-
-                fig.update_layout(
-                    title='Previsão de Receitas',
-                    xaxis_title='Data',
-                    yaxis_title='Valor',
-                    hovermode="x unified"
-                )
-
-                # Converter o gráfico para JSON
-                plot_json = fig.to_json()
-
-                # Calcular previsão para o próximo mês
-                proximo_mes = forecast.iloc[-1]
-                previsao_proximo_mes = proximo_mes['yhat']
-
-                # Calcular variação percentual
-                if len(df) > 0 and df['y'].iloc[-1] > 0:
-                    variacao_percentual = ((previsao_proximo_mes - df['y'].iloc[-1]) / df['y'].iloc[-1]) * 100
-                else:
-                    variacao_percentual = 0
-
-            except Exception as e:
-                print(f"Erro na previsão: {e}")
-
-        # Calcular métricas adicionais
-        total_receitas = sum(receitas_data.values())
-        total_despesas = sum(despesas_data.values())
-        saldo = total_receitas - total_despesas
-
-        # Calcular o saldo atual
-        saldo_atual = sum(float(r['valor_rec']) for r in receitas) - sum(float(d['valor_des']) for d in despesas)
-
-        cur.close()
+        # Converter os gráficos para JSON
+        plot_fluxo = fig_fluxo.to_json()
+        plot_evolucao = fig_evolucao.to_json()
+        plot_saldo = fig_saldo.to_json()
 
         return render_template('relatorio.html',
-                               receitas_data=receitas_data,
-                               despesas_data=despesas_data,
-                               categorias_receitas_data=categorias_receitas_data,
-                               categorias_despesas_data=categorias_despesas_data,
-                               plot_json=plot_json,
                                total_receitas=total_receitas,
                                total_despesas=total_despesas,
-                               saldo=saldo,
-                               saldo_atual=saldo_atual,
-                               previsao_proximo_mes=previsao_proximo_mes,
-                               variacao_percentual=variacao_percentual)
-    else:
-        return redirect(url_for('login'))
- # ============================== EXTRATO BANCARIO ===============================   
+                               saldo_total=saldo_total,
+                               saldo_conta=saldo_conta_value,
+                               plot_fluxo=plot_fluxo,
+                               plot_evolucao=plot_evolucao,
+                               plot_saldo=plot_saldo,
+                               datetime=datetime)
+    
+    return redirect(url_for('login'))
+
+ # ============================== EXTRATO BANCARIO ===============================
+    
 @app.route('/extrato')
 def extrato():
     if 'loggedin' in session and 'mfa_validated' in session and session['mfa_validated']:
         cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
+
+        cursor.execute("SELECT * FROM jv_receitas WHERE id = %s AND account_id is NULL", (session['id'],))
+        receitas_g = cursor.fetchall()
+
+        cursor.execute("SELECT * FROM jv_despesas WHERE id = %s AND account_id is NULL", (session['id'],))
+        despesas_g = cursor.fetchall()
         
-        # Buscar receitas
-        cursor.execute("SELECT * FROM jv_receitas WHERE id = %s ORDER BY data_rec DESC", (session['id'],))
+        # Buscar receitas vinculadas a contas do tipo 'BANK'
+        cursor.execute("""
+            SELECT r.*
+            FROM jv_receitas r
+            JOIN jv_accounts a ON r.account_id = a.account_id
+            WHERE r.id = %s AND a.type = 'BANK'
+            ORDER BY r.data_rec DESC
+        """, (session['id'],))
         receitas = cursor.fetchall()
         
-        # Buscar despesas
-        cursor.execute("SELECT * FROM jv_despesas WHERE id = %s ORDER BY data_des DESC", (session['id'],))
+        # Buscar despesas vinculadas a contas do tipo 'BANK'
+        cursor.execute("""
+            SELECT d.*
+            FROM jv_despesas d
+            JOIN jv_accounts a ON d.account_id = a.account_id
+            WHERE d.id = %s AND a.type = 'BANK'
+            ORDER BY d.data_des DESC
+        """, (session['id'],))
         despesas = cursor.fetchall()
         
         # Combinar receitas e despesas em uma única lista
         transacoes = []
+
         for receita in receitas:
             transacoes.append({
                 'tipo': 'Receita',
@@ -665,6 +692,23 @@ def extrato():
                 'valor': despesa['valor_des'],
                 'data': despesa['data_des'],
                 'categoria': despesa['categoria']
+            })
+
+        for rec in receitas_g:
+            transacoes.append({
+                'tipo': 'Receita',
+                'descricao': rec['descricao_rec'],
+                'valor': rec['valor_rec'],
+                'data': rec['data_rec'],
+                'categoria': rec['categoria']
+            })
+        for des in despesas_g:
+            transacoes.append({
+                'tipo': 'Despesa',
+                'descricao': des['descricao_des'],
+                'valor': des['valor_des'],
+                'data': des['data_des'],
+                'categoria': des['categoria']
             })
         
         # Ordenar transações por data (mais recente primeiro)
@@ -803,7 +847,7 @@ def get_connector_credentials(connector_id):
     response = requests.get(url, headers=headers)
     
     if response.status_code == 200:
-        return response.json()  # Retorna as credenciais necessárias
+        return response.json() 
     else:
         raise Exception(f"Erro ao buscar credenciais do conector: {response.text}")
     
@@ -813,13 +857,12 @@ logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %
 def list_connectors():
     if 'loggedin' in session:
         try:
-            # Fetch connectors from Pluggy API
+            
             connectors = pluggy_client.list_connectors(countries='BR')
             connectors_data = connectors.get('results', [])
             
             logging.debug(f"Conectores recebidos: {connectors_data}")
 
-            # Salvar conectores no banco de dados
             if connectors_data:
                 for connector in connectors_data:
                     store_connector_in_db(connector)
@@ -838,7 +881,7 @@ def list_connectors():
 
 def store_connector_in_db(connector):
     try:
-        # Conectar ao banco de dados usando o MySQLdb
+
         cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
         
         # Remover o 'Z' e ajustar a data para o formato compatível com MySQL
@@ -847,7 +890,6 @@ def store_connector_in_db(connector):
 
         logging.debug(f"Inserindo conector: {connector['id']}")
 
-        # Inserir os dados do conector na tabela
         cursor.execute("""
             INSERT INTO jv_connectors (id, name, logo, institution_url, products, type, created_at, updated_at)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
@@ -856,10 +898,10 @@ def store_connector_in_db(connector):
             connector['name'],
             connector['imageUrl'],
             connector['institutionUrl'],
-            json.dumps(connector['products']),  # Armazena a lista de produtos como JSON
+            json.dumps(connector['products']),
             connector['type'],
-            created_at,  # Usando o formato corrigido
-            updated_at   # Usando o formato corrigido
+            created_at,  
+            updated_at  
         ))
 
         # Commit da transação
@@ -878,29 +920,27 @@ def store_connector_in_db(connector):
 @app.route('/connect_token', methods=['GET'])
 def get_connect_token():
     try:
-        # Confirme se o ID do usuário está disponível na sessão
+
         if 'id' not in session:
             return jsonify({"error": "ID de sessão não definido"}), 400
 
         url = "https://api.pluggy.ai/connect_token"
         payload = {
             "options": {
-                "clientUserId": str(session['id']),  # Convertendo o ID para string
+                "clientUserId": str(session['id']),
                 "webhookUrl": "https://www.jarvisfinance.xyz"
             }
         }
         headers = {
             "accept": "application/json",
             "content-type": "application/json",
-            "X-API-KEY": pluggy_client.access_token  # Certifique-se de que o token está correto
+            "X-API-KEY": pluggy_client.access_token 
         }
 
         response = requests.post(url, json=payload, headers=headers)
 
-        # Verifique se a resposta foi bem-sucedida
         response.raise_for_status()
 
-        # Retorne a resposta da API como JSON
         return jsonify(response.json())
 
     except requests.exceptions.RequestException as e:
@@ -908,20 +948,20 @@ def get_connect_token():
 
 @app.route('/create_item', methods=['POST'])
 def create_item():
-    # Verifica se o usuário está logado
+
     if 'loggedin' not in session:
         return jsonify({'status': 'error', 'message': 'Unauthorized'}), 401
 
     try:
-        # Obtém os dados enviados pelo frontend
+
         data = request.json
         print('Dados recebidos no backend:', data)
         if not data:
             return jsonify({'status': 'error', 'message': 'Payload inválido'}), 400
 
-        # Obtém o 'item_id' e 'connector_id' do JSON recebido
-        item_id = data.get('id')  # Certifique-se de que o frontend envie o JSON correto
-        connector_id = data.get('connector_id')  # Novo campo para o 'connector_id'
+
+        item_id = data.get('id')  
+        connector_id = data.get('connector_id')  
         
         if connector_id == 2:
             connector_id = 200
@@ -931,7 +971,7 @@ def create_item():
         if not connector_id:
             return jsonify({'status': 'error', 'message': 'Connector ID não encontrado no JSON'}), 400
 
-        # Obtém o ID do usuário logado
+
         user_id = session['id']
 
         # Armazena o item_id, client_user_id e connector_id no banco
@@ -964,26 +1004,24 @@ def delete_bank():
 
         logging.debug(f"Item ID recebido: {item_id}")
 
-        # Configurar a URL da API Pluggy
+
         url = f"https://api.pluggy.ai/items/{item_id}"
         headers = {
             "accept": "application/json",
-            "X-API-KEY": pluggy_client.access_token  # Altere para sua chave correta
+            "X-API-KEY": pluggy_client.access_token  
         }
 
         logging.debug(f"Enviando solicitação DELETE para Pluggy na URL: {url}")
         
-        # Fazer a requisição DELETE na Pluggy
+
         response = requests.delete(url, headers=headers)
 
-        if response.status_code in [200, 204]:  # Considere sucesso para 200 ou 204
+        if response.status_code in [200, 204]:  
             logging.info(f"Item {item_id} removido com sucesso da Pluggy. Resposta: {response.json()}")
             
-            # Conectar ao banco de dados
             cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
             logging.debug(f"Conectado ao banco de dados. Tentando remover contas associadas ao item {item_id}.")
             
-            # Primeiro, removemos as contas associadas ao item
             cursor.execute("DELETE FROM jv_accounts WHERE item_id = %s", (item_id,))
             mysql.connection.commit()
 
@@ -993,7 +1031,6 @@ def delete_bank():
             else:
                 logging.warning(f"Nenhuma conta encontrada para o item {item_id}.")
 
-            # Agora, removemos o item da tabela jv_items
             logging.debug(f"Removendo item {item_id} da tabela jv_items.")
             cursor.execute("DELETE FROM jv_items WHERE item_id = %s", (item_id,))
             mysql.connection.commit()
@@ -1024,10 +1061,9 @@ def connected_banks():
         return jsonify({'status': 'error', 'message': 'Unauthorized'}), 401
 
     try:
-        user_id = session['id']  # Obtém o ID do usuário logado
+        user_id = session['id']  
         cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
 
-        # Busca os item_ids relacionados ao usuário logado
         cursor.execute("""
             SELECT item_id FROM jv_items
             WHERE client_user_id = %s
@@ -1043,19 +1079,17 @@ def connected_banks():
 
         for item in items:
             item_id = item['item_id']
-            # Aqui estamos passando o item_id obtido do banco para a API
-            url = f"https://api.pluggy.ai/items/{item_id}"  # URL da API da Pluggy para obter os detalhes do item
+
+            url = f"https://api.pluggy.ai/items/{item_id}"
             headers = {
                 "accept": "application/json",
-                "X-API-KEY": pluggy_client.access_token  # Substitua com a sua chave de API da Pluggy
+                "X-API-KEY": pluggy_client.access_token 
             }
 
-            # Faz a requisição para obter os detalhes do item na API da Pluggy
             response = requests.get(url, headers=headers)
             if response.status_code == 200:
                 pluggy_item_data = response.json()
                 
-                # Adiciona os dados do item à lista de conectados
                 connected_banks.append({
                     'item_id': item_id,
                     'status': pluggy_item_data.get('status', 'Status Desconhecido'),
@@ -1079,10 +1113,9 @@ def get_user_accounts():
         return jsonify({'status': 'error', 'message': 'Unauthorized'}), 401
 
     try:
-        user_id = session['id']  # Obtém o ID do usuário logado
+        user_id = session['id'] 
         cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
 
-        # Busca os item_ids relacionados ao usuário logado
         cursor.execute("""
             SELECT item_id FROM jv_items
             WHERE client_user_id = %s
@@ -1097,7 +1130,6 @@ def get_user_accounts():
 
         for item in items:
             item_id = item['item_id']
-            # Faz a requisição para obter as contas associadas ao item
             url = f"https://api.pluggy.ai/accounts?itemId={item_id}"
             headers = {
                 "accept": "application/json",
@@ -1107,8 +1139,7 @@ def get_user_accounts():
             response = requests.get(url, headers=headers)
             if response.status_code == 200:
                 accounts_data = response.json().get('results', [])
-                
-                # Adiciona cada conta encontrada à lista de contas do usuário
+
                 for account in accounts_data:
                     account_id = account['id']
                     name = account.get('name', 'Conta Desconhecida')
@@ -1119,7 +1150,6 @@ def get_user_accounts():
                     account_type = account['type']
                     credit_data = account.get('creditData', {})
 
-                    # Converte o campo created_at para o formato compatível com MySQL
                     created_at = None
                     if created_at_raw:
                         try:
@@ -1128,7 +1158,6 @@ def get_user_accounts():
                             # Caso o milissegundos não seja fornecido
                             created_at = datetime.strptime(created_at_raw, "%Y-%m-%dT%H:%M:%SZ")
 
-                    # Insere os dados da conta na tabela jv_accounts
                     cursor.execute("""
                         INSERT INTO jv_accounts (account_id, item_id, type, name, balance, currency, created_at, owner)
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
@@ -1143,7 +1172,6 @@ def get_user_accounts():
                     
                     mysql.connection.commit()
 
-                    # Adiciona ao retorno
                     user_accounts.append({
                         'account_id': account_id,
                         'item_id': item_id,
@@ -1200,68 +1228,100 @@ def sync_transactions():
         user_id = session['id']  # ID do usuário logado
         cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
 
-        # Buscar contas associadas ao usuário
+        # Buscar os item_id associados ao usuário logado
         cursor.execute("""
-            SELECT account_id FROM jv_accounts
-            WHERE user_id = %s
+            SELECT item_id FROM jv_items
+            WHERE client_user_id = %s
         """, (user_id,))
-        accounts = cursor.fetchall()
+        items = cursor.fetchall()
 
-        if not accounts:
+        if not items:
             cursor.close()
-            return jsonify({'status': 'success', 'data': [], 'message': 'Nenhuma conta encontrada para sincronizar.'}), 200
+            return jsonify({'status': 'success', 'data': [], 'message': 'Nenhum item encontrado para sincronizar.'}), 200
 
         synced_transactions = []
-        for account in accounts:
-            account_id = account['account_id']
 
-            # Requisição para obter transações do Pluggy
-            url = f"https://api.pluggy.ai/transactions?accountId={account_id}"
+        for item in items:
+            item_id = item['item_id']
+
+            # Obter as contas associadas ao item
+            url_accounts = f"https://api.pluggy.ai/accounts?itemId={item_id}"
             headers = {
                 "accept": "application/json",
-                "X-API-KEY": pluggy_client.access_token  # Token de API
+                "X-API-KEY": pluggy_client.access_token
             }
-            response = requests.get(url, headers=headers)
+            response_accounts = requests.get(url_accounts, headers=headers)
+            if response_accounts.status_code == 200:
+                accounts = response_accounts.json().get('results', [])
+                for account in accounts:
+                    account_id = account['id']
 
-            if response.status_code == 200:
-                transactions = response.json().get('results', [])
-                for transaction in transactions:
-                    amount = transaction['amount']
-                    transaction_type = 'receitas' if amount > 0 else 'despesas'
-                    table_name = f"jv_{transaction_type}"
+                    # Buscar transações para cada account_id
+                    url_transactions = f"https://api.pluggy.ai/transactions?accountId={account_id}&from=2020-10-13&to=2024-12-30&pageSize=500&page=1"
+                    response_transactions = requests.get(url_transactions, headers=headers)
 
-                    # Insere transações no banco
-                    cursor.execute(f"""
-                        INSERT INTO {table_name} (id, account_id, descricao, valor, data, categoria)
-                        VALUES (%s, %s, %s, %s, %s, %s)
-                        ON DUPLICATE KEY UPDATE
-                        valor = VALUES(valor),
-                        categoria = VALUES(categoria)
-                    """, (
-                        user_id,
-                        account_id,
-                        transaction['description'],
-                        abs(amount),
-                        transaction['date'],
-                        transaction.get('category', 'Outros')
-                    ))
+                    if response_transactions.status_code == 200:
+                        transactions = response_transactions.json().get('results', [])
+                        for transaction in transactions:
+                            amount = transaction['amount']
+                            is_credit_card = transaction['creditCardMetadata']
+                            transaction_type = 'receitas' if amount > 0 and is_credit_card == None else 'despesas'
+                            table_name = f"jv_{transaction_type}"
 
-                    synced_transactions.append({
-                        'account_id': account_id,
-                        'description': transaction['description'],
-                        'amount': amount,
-                        'date': transaction['date'],
-                        'category': transaction.get('category', 'Outros')
-                    })
+                            # Converter a data para o formato MySQL
+                            raw_date = transaction['date']
+                            formatted_date = datetime.strptime(raw_date, '%Y-%m-%dT%H:%M:%S.%fZ').strftime('%Y-%m-%d')
+
+                            # Inserir transações no banco
+                            if transaction_type == 'receitas':
+                                cursor.execute(f"""
+                                    INSERT INTO jv_receitas (id, account_id, descricao_rec, valor_rec, data_rec, categoria)
+                                    VALUES (%s, %s, %s, %s, %s, %s)
+                                    ON DUPLICATE KEY UPDATE
+                                    valor_rec = VALUES(valor_rec),
+                                    categoria = VALUES(categoria)
+                                """, (
+                                    user_id,
+                                    account_id,
+                                    transaction['description'],
+                                    abs(amount),
+                                    formatted_date,
+                                    transaction.get('category', 'Outros')
+                                ))
+                            else:  # despesas
+                                cursor.execute(f"""
+                                    INSERT INTO jv_despesas (id, account_id, descricao_des, valor_des, data_des, categoria)
+                                    VALUES (%s, %s, %s, %s, %s, %s)
+                                    ON DUPLICATE KEY UPDATE
+                                    valor_des = VALUES(valor_des),
+                                    categoria = VALUES(categoria)
+                                """, (
+                                    user_id,
+                                    account_id,
+                                    transaction['description'],
+                                    abs(amount),
+                                    formatted_date,
+                                    transaction.get('category', 'Outros')
+                                ))
+
+                            synced_transactions.append({
+                                'account_id': account_id,
+                                'description': transaction['description'],
+                                'amount': amount,
+                                'date': formatted_date,
+                                'category': transaction.get('category', 'Outros')
+                            })
+
+            else:
+                print(f"Erro ao buscar contas para item_id {item_id}: {response_accounts.status_code}")
 
         mysql.connection.commit()
         cursor.close()
+
         return jsonify({'status': 'success', 'data': synced_transactions, 'message': 'Transações sincronizadas com sucesso!'}), 200
 
     except Exception as e:
         return jsonify({'status': 'error', 'message': f'Erro interno: {str(e)}'}), 500
-
-    
 
 # Rota para atualizar transações
 @app.route('/update_transactions/<item_id>', methods=['POST'])
@@ -1392,10 +1452,8 @@ def get_connectors():
 @app.route('/test_connection')
 def test_connection():
     try:
-        # Tenta obter o token de acesso
         access_token = pluggy_client.access_token
         
-        # Tenta listar os conectores (primeira página)
         connectors_response = pluggy_client.list_connectors(page=1, page_size=5)
         
         return jsonify({

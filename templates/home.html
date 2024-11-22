@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='img/favicon.png') }}">
     <title>HOME - Jarvis Advisor</title>
 </head>
     <body>
@@ -12,14 +13,15 @@
 
         {% block content %}
             <section class="hero">
-                <div class="container"> 
                     <div class="content">
                         <h2>Meu Dinheiro</h2>
                         <p>Tome o controle da sua vida financeira!</p>
                         <div class="balance-card">
                           <div>
-                            <h3>👋 Olá, {{ username }}!</h3>
-                            <p>Saldo Geral: <span class="balance">R$ {{ saldo }}</span></p>
+                            <h3 class="text">👋 Olá, {{ username }}!</h3>
+                            <p>Saldo:   <span style="color: {% if saldo < 0 %}red{% else %}green{% endif %};">
+                              {{ saldo | formata_moeda }}
+                          </span>
                           </div>
                           <i class="fas fa-ellipsis-v"></i>
                         </div>
@@ -100,21 +102,20 @@
                           </div>
                         </div>
                         <div class="jarvis-iq">
-                          <h3> Jarvis IQ <span>IA</span></h3>
-                          <p>Para otimizar a sua conta de luz é recomendado que o ar-condicionado esteja entre as temperaturas 22 ºC a 25 ºC para que ele trabalhe com uma maior eficiência energética</p>
-                          <hr/>
-                          <p>Uma lista de compras pode ajudar a economizar dinheiro e tempo</p>
-                        </div>
-                        <div class="chat-box">
+                          <h3>Jarvis IQ <span>IA</span></h3>
+                          <div id="resposta-area" class="resposta-area"></div> <!-- Área para exibir a resposta -->
+                      </div>
+                      <div class="chat-box">
                           <i class="fas fa-question-circle"></i>
-                          <input placeholder='Pergunte ao JARVIS: Ex. Exiba o gasto obtido pela etiqueta "Conta de Luz"?' type="text"/>
-                       <button>
-                        <i class="fas fa-check">
-                        </i>
-                       </button>
+                          <div class="input-container">
+                              <input id="input-pergunta" placeholder='Pergunte ao JARVIS: Ex. Exiba o gasto obtido pela etiqueta "Conta de Luz"?' type="text"/>
+                              <div id="sugestoes" class="sugestoes"></div> <!-- Contêiner para sugestões -->
+                          </div>
+                          <button id="btn-pergunta">
+                              <i class="fas fa-check"></i>
+                          </button>
                       </div>
                      </div>
-                </div>
             </section> 
             <script type="text/javascript" src="{{ url_for('static', filename='js/hmscripts.js') }}"></script>
         {% endblock %}

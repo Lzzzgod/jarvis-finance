@@ -1,0 +1,72 @@
+/* Extrato  */
+.extrato-container {
+    display: grid;
+    padding: 20px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  
+  #extrato-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0 10px;
+  }
+  
+  #extrato-table th {
+    background-color: #f8f9fa;
+    padding: 12px;
+    text-align: left;
+    font-weight: bold;
+  }
+  
+  #extrato-table td {
+    padding: 12px;
+    background-color: #ffffff;
+  }
+  
+  #extrato-table tr.receita {
+    background-color: rgba(76, 175, 80, 0.1);  /* Verde claro */
+  }
+  
+  #extrato-table tr.despesa {
+    background-color: rgba(255, 152, 0, 0.1);  /* Laranja claro */
+  }
+  
+  #extrato-table tr:hover {
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  }
+  
+  /* Adicione estas novas regras para melhorar a visibilidade */
+  #extrato-table tr.receita td:first-child {
+    border-left: 4px solid #4CAF50;  /* Borda verde à esquerda para receitas */
+  }
+  
+  #extrato-table tr.despesa td:first-child {
+    border-left: 4px solid #FF9800;  /* Borda laranja à esquerda para despesas */
+  }
+  
+  #extrato-table td:nth-child(3) {
+    text-align: left;
+  }
+
+  .btn-download {
+    display: inline-block;
+    margin: 10px 0;
+    padding: 10px 20px;
+    background-color: #007bff; /* Cor de fundo do botão */
+    color: #fff; /* Cor do texto */
+    border-radius: 5px; /* Bordas arredondadas */
+    text-align: center; /* Centraliza o texto */
+    text-decoration: none; /* Remove sublinhado */
+    transition: background-color 0.3s; /* Transição suave para a cor de fundo */
+}
+
+.button-container {
+  display: flex; /* Ativa o flexbox */
+  justify-content: flex-end; /* Alinha o conteúdo à direita */
+  margin-bottom: 10px; /* Espaço abaixo do botão */
+}
+
+.btn-download:hover {
+    background-color: #0056b3; /* Cor de fundo ao passar o mouse */
+}

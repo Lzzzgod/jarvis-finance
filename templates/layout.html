@@ -47,10 +47,6 @@
             </ul>
         </div>
         <div class="sidebar-bottom">
-            <a href="#" class="settings-link">
-                <i class="fas fa-cog"></i>
-                Configurações
-            </a>
             <div class="user">
                 <img alt="User profile picture" height="40" src="!" width="40"/>
                 <span><a href="{{ url_for('profile') }}"> {{ username }} </a></span>
@@ -59,6 +55,8 @@
         </div>
     </div>      
         {% block content %}{% endblock %}
-    
+        <footer>
+            <p>&copy; 2024 Jarvis Advisor. Todos os direitos reservados.</p>
+        </footer>
    </body>
 </html>
