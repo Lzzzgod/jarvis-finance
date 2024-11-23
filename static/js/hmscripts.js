@@ -113,7 +113,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const pergunta = inputPergunta.value;
 
         // Chamar a rota do backend
-        fetch('/sua_rota_backend', {
+        fetch('/iq', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'

@@ -300,18 +300,16 @@ def home():
         cursor.execute("SELECT * FROM jv_despesas WHERE id = %s", (session['id'],))
         despesas = cursor.fetchall()
 
-        cursor.execute("""SELECT d.*
-                        FROM jv_despesas d
+        cursor.execute("""SELECT *FROM jv_despesas d
                         JOIN jv_accounts a ON d.account_id = a.account_id
                         WHERE d.id = %s AND a.type = 'CREDIT'
-                        ORDER BY d.data_des DESC""", (session['id'],))
+                        ORDER BY d.data_des DESC;""", (session['id'],))
         despesas_cartao = cursor.fetchall()
         
         
         # Calcula o saldo geral
         recxdes = sum(float(r['valor_rec']) for r in receitas) - sum(float(d['valor_des']) for d in despesas)
-        saldo = recxdes + sum(float(d['valor_des_c']) for d in despesas_cartao)
-
+        saldo = recxdes + sum(float(d['valor_des']) for d in despesas_cartao)
 
         # Renderiza a página com o saldo geral
         return render_template('home.html', username=user_name, saldo=saldo)
@@ -620,12 +618,23 @@ def relatorio():
         fig_evolucao.add_trace(go.Bar(x=months, y=balance, name='Balanço', marker_color=['green' if b > 0 else 'red' for b in balance]))
         fig_evolucao.update_layout(title="Evolução do Balanço", xaxis_title="Meses", yaxis_title="Lucro/Prejuízo (R$)", yaxis=dict(tickformat="R$,.2f"))
 
+        saldo_final = round(saldo_total + saldo_conta_value, 2)
+        saldo_conta_value_rounded = round(saldo_conta_value, 2)
+
         fig_saldo = go.Figure()
         fig_saldo.add_trace(go.Indicator(
             mode="number+delta",
-            value=saldo_total + saldo_conta_value,
+            value=saldo_final,
             title="Saldo Final",
-            delta={'reference': saldo_conta_value, 'valueformat': "R$,.2f"},
+            delta={
+                'reference': saldo_conta_value_rounded,
+                'valueformat': ".2f",  # Formatação da variação
+                'prefix': "R$ ",  # Prefixo para o valor principal
+            },
+            number={
+                'valueformat': ".2f",  # Formatação do valor principal sem o prefixo
+                'prefix': "R$ ",  # Prefixo para o valor principal
+            }
         ))
         fig_saldo.update_layout(height=300)
 
@@ -716,7 +725,7 @@ def relatorio():
     
     return redirect(url_for('login'))
 
-@app.route('/sua_rota_backend', methods=['POST'])
+@app.route('/iq', methods=['POST'])
 def processar_pergunta():
     if 'loggedin' not in session:
         return jsonify({'error': 'Unauthorized'}), 401
@@ -1125,7 +1134,7 @@ def get_connect_token():
         payload = {
             "options": {
                 "clientUserId": str(session['id']),
-                "webhookUrl": "https://www.jarvisfinance.xyz"
+                "webhookUrl": "https://jarvisfinance.xyz"
             }
         }
         headers = {

@@ -55,12 +55,11 @@
                 <div class="chart-row">
                     <div id="saldo"></div>
                 </div>
-
             </div>
             </main>
             <script>
                 Plotly.newPlot('contagem_receitas', {{ plot_contagem_receitas | safe }}); 
-                Plotly.newPlot('contagem_despesas', {{ plot_contagem_despesas | safe }}); // Gráfico de contagem de despesas
+                Plotly.newPlot('contagem_despesas', {{ plot_contagem_despesas | safe }});
                 Plotly.newPlot('fluxo', {{ plot_fluxo | safe }});
                 Plotly.newPlot('evolucao', {{ plot_evolucao | safe }});
                 Plotly.newPlot('saldo', {{ plot_saldo | safe }});
