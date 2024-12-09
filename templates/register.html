@@ -1,91 +1,143 @@
-<!-- index.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap" rel="stylesheet">
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Jarvis Advisor</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-  <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='img/favicon.png') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jarvis Advisor</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='img/favicon.png') }}">
 </head>
 <body>
   <div class="container">
       <div class="content">
           <div class="left-content">
+              <div class="logo">
+                  <a href="{{ url_for('login') }}">
+                      <img src="{{ url_for('static', filename='img/back.png') }}" alt="Jarvis Advisor">
+                  </a>
+              </div>
               <div class="carousel-container">
-                <div class="carousel-inner">
-                    <div class="carousel-item">
-                        <img src="{{ url_for('static', filename='img/img1.svg') }}" alt="Image 1">
-                    </div>
-                    <div class="carousel-item">
-                        <img src="{{ url_for('static', filename='img/img2.svg') }}" alt="Image 2">
-                    </div>
-                    <div class="carousel-item">
-                        <img src="{{ url_for('static', filename='img/img3.svg') }}" alt="Image 3">
-                    </div>
-                </div> 
+                  <div class="carousel-inner">
+                      <div class="carousel-item">
+                          <img src="{{ url_for('static', filename='img/img1.svg') }}" alt="Image 1">
+                      </div>
+                      <div class="carousel-item">
+                          <img src="{{ url_for('static', filename='img/img2.svg') }}" alt="Image 2">
+                      </div>
+                      <div class="carousel-item">
+                          <img src="{{ url_for('static', filename='img/img3.svg') }}" alt="Image 3">
+                      </div>
+                  </div>
                   <div class="dots">
                       <span class="dot active"></span>
                       <span class="dot"></span>
                       <span class="dot"></span>
                   </div>
               </div>
-                <h2>Controle Sua Vida Financeira</h2>
-                <p>Conecte suas contas e adicione suas despesas para receber dicas valiosas para o seu bolso</p>
+              <h2>Controle Sua Vida Financeira</h2>
+              <p>Conecte suas contas e adicione suas despesas para receber dicas valiosas para o seu bolso</p>
           </div>
           <div class="right-content">
-            <h2>Registre-se!</h2>
-            <p>Por favor preencha os campos abaixo!</p>
-          
-            <form action="{{ url_for('register') }}" method="post" autocomplete="off" onsubmit="return validateForm()">
-                <div class="input-field-container">
-                    <label for="nome">Nome</label>
-                    <input type="text" id="nome" name="nome" placeholder="Digite seu Nome " class="input-field">
-                    <div class="error" id="nome-error"></div>
-                </div>
-                <div class="input-field-container">
-                    <label for="email">E-mail</label>
-                    <input type="email" id="email" name="email" placeholder="Digite seu E-mail"  class="input-field">
-                    <div class="error" id="email-error"></div>
-                </div>
-                <div class="input-field-container">
-                    <label for="password">Senha</label>
-                    <input type="password" id="password" name="password" placeholder="Digite sua senha" class="input-field">
-                    <div class="error" id="password-error"></div>
-                </div>
-                <div class="input-field-container">
-                    <label for="repass">Repetir Senha</label>
-                    <input type="password" id="repass" name="repass" placeholder="Digite sua senha novamente" class="input-field">
-                    <div class="error" id="repass-error"></div>
-                </div>
-                <div class="input-field-container">
-                    <label for="telefone">Telefone para contato</label>
-                    <input type="tel" id="telefone" name="telefone" placeholder="Digite seu telefone" class="input-field">
-                    <div class="error" id="telefone-error"></div>
-                </div>
-                <div class="msg">{{ msg }}</div>
-                <input type="submit" class="button" value ="Registrar">
-            </form>
+              <h2>Registre-se!</h2>
+              <p>Por favor preencha os campos abaixo!</p>
+              <form action="{{ url_for('register') }}" method="post" autocomplete="off" onsubmit="return validateForm()">
+                  <div class="input-field-container">
+                      <label for="nome">Nome</label>
+                      <input type="text" id="nome" name="nome" placeholder="Digite seu Nome" class="input-field">
+                      <div class="error" id="nome-error"></div>
+                  </div>
+                  <div class="input-field-container">
+                      <label for="email">E-mail</label>
+                      <input type="email" id="email" name="email" placeholder="Digite seu E-mail" class="input-field">
+                      <div class="error" id="email-error"></div>
+                  </div>
+                  <div class="input-field-container">
+                      <label for="password">Senha</label>
+                      <input type="password" id="password" name="password" placeholder="Digite sua senha" class="input-field">
+                      <div class="error" id="password-error"></div>
+                  </div>
+                  <div class="input-field-container">
+                      <label for="repass">Repetir Senha</label>
+                      <input type="password" id="repass" name="repass" placeholder="Digite sua senha novamente" class="input-field">
+                      <div class="error" id="repass-error"></div>
+                  </div>
+                  <div class="input-field-container">
+                      <label for="telefone">Telefone para contato</label>
+                      <input type="tel" id="telefone" name="telefone" placeholder="Digite seu telefone" class="input-field">
+                      <div class="error" id="telefone-error"></div>
+                  </div>
+                  <div class="msg">
+                    {% if msg %}
+                        <div class="alert error">
+                            {{ msg }}
+                        </div>
+                    {% endif %}
+                  </div>
+                  {% with messages = get_flashed_messages(with_categories=true) %}
+                  {% if messages %}
+                      <div class="flash-messages">
+                      {% for category, message in messages %}
+                          <div class="alert {{ category }}">
+                              {{ message }}
+                          </div>
+                      {% endfor %}
+                      </div>
+                  {% endif %}
+                  {% endwith %}
+                  <input type="submit" class="button" value="Registrar">
+              </form>
+              <div class="social-buttons">
+                  <button class="social-button" onclick="window.location.href='mfa.html'">
+                      <img src="{{ url_for('static', filename='img/google.svg') }}" alt="Google">
+                      Entrar com o Google
+                  </button>
+                  <button class="social-button" onclick="window.location.href='mfa.html'">
+                      <img src="{{ url_for('static', filename='img/apple.svg') }}" alt="Apple">
+                      Entrar com a Apple
+                  </button>
+              </div>
+              <p class="register-link">Ja possui uma conta? <a href="{{ url_for('login') }}">Entrar!</a></p>
+          </div>
+      </div>
+  </div>
 
-            <div class="social-buttons">
-                <button class="social-button" onclick="window.location.href='mfa.html'">
-                    <img src="{{ url_for('static', filename='img/google.svg') }}" alt="Google">
-                    Entrar com o Google
-                </button>
-                <button class="social-button" onclick="window.location.href='mfa.html'">
-                    <img src="{{ url_for('static', filename='img/apple.svg') }}" alt="Apple">
-                    Entrar com a Apple
-                </button>
-            </div>
-            <p class="register-link">Ja possui uma conta? <a href="{{ url_for('login') }}">Entrar!</a></p>
-        </div>
+  <!-- Modal de Sucesso -->
+<div id="successModal" class="modal" style="display: {% if show_modal %}block{% else %}none{% endif %};">
+    <div class="modal-content">
+        <span class="close">&times;</span>
+        <h2>Registro efetuado com sucesso!</h2>
+        <p>Agora você pode acessar sua conta e explorar o Jarvis Advisor.</p>
+        <button class="button primary-button" id="loginButton">Fazer Login</button>
     </div>
 </div>
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.mask/1.14.16/jquery.mask.min.js"></script>
-    <script type="text/javascript" src="{{ url_for('static', filename='js/scripts.js') }}"></script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const modal = document.getElementById('successModal');
+        const closeModal = document.querySelector('.close');
+        const loginButton = document.getElementById('loginButton');
+
+        loginButton.addEventListener('click', function () {
+            window.location.href = "{{ url_for('login') }}";
+        });
+
+        closeModal.addEventListener('click', function () {
+            modal.style.display = 'none';
+        });
+
+        window.addEventListener('click', function (event) {
+            if (event.target === modal) {
+                modal.style.display = 'none';
+            }
+        });
+    });
+    
+</script>
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.mask/1.14.16/jquery.mask.min.js"></script>
+  <script type="text/javascript" src="{{ url_for('static', filename='js/scripts.js') }}"></script>
 </body>
 </html>

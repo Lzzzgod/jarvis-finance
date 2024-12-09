@@ -73,7 +73,10 @@ def testar_conexao():
 def index():
     print("Rota index hit")
     return render_template("index.html")
-    
+
+@app.route("/roadmap")
+def roadmap():
+    return render_template("roadmap.html")
 # ============================== LOGIN ==============================
 
 @app.route('/login/', methods=['GET', 'POST'])
@@ -165,7 +168,6 @@ def mfa_add():
             code = request.form.get('code')
             if not code:
                 return 'Erro: código não fornecido', 400
-            # Tras o secret na sessao
             secret_key = session.get('mfa_secret_key')
             # Verifica o codigo MFA
             totp = pyotp.TOTP(secret_key)
@@ -214,7 +216,7 @@ def mfa_code():
 
             # valida o MFA code
             totp = pyotp.TOTP(secret_key)
-            if totp.verify(code, valid_window=5):  # checa se é valido no tempo, se valido armazena o status
+            if totp.verify(code, valid_window=8):  # checa se é valido no tempo, se valido armazena o status
                 session['mfa_validated'] = True
                 return redirect(url_for('home'))
             else:
@@ -291,28 +293,21 @@ def check_session():
 @app.route('/home')
 def home():
     if 'loggedin' in session and 'mfa_validated' in session and session['mfa_validated']:
+        
         cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
         cursor.execute('SELECT nome_user FROM jv_user WHERE id = %s', (session['id'],))
         user_name = cursor.fetchone()['nome_user']
-        
-        cursor.execute("SELECT * FROM jv_receitas WHERE id = %s", (session['id'],))
-        receitas = cursor.fetchall()
-        cursor.execute("SELECT * FROM jv_despesas WHERE id = %s", (session['id'],))
-        despesas = cursor.fetchall()
 
-        cursor.execute("""SELECT *FROM jv_despesas d
-                        JOIN jv_accounts a ON d.account_id = a.account_id
-                        WHERE d.id = %s AND a.type = 'CREDIT'
-                        ORDER BY d.data_des DESC;""", (session['id'],))
-        despesas_cartao = cursor.fetchall()
-        
-        
-        # Calcula o saldo geral
-        recxdes = sum(float(r['valor_rec']) for r in receitas) - sum(float(d['valor_des']) for d in despesas)
-        saldo = recxdes + sum(float(d['valor_des']) for d in despesas_cartao)
+        cursor.execute("""
+             SELECT balance FROM jv_accounts
+            JOIN jv_items ON jv_accounts.item_id = jv_items.item_id
+            WHERE jv_items.client_user_id = %s AND jv_accounts.type = 'BANK'
+        """, (session['id'],))
+        saldo_conta = cursor.fetchone()
+        saldo_conta_value = saldo_conta['balance'] if saldo_conta else 0.0
 
         # Renderiza a página com o saldo geral
-        return render_template('home.html', username=user_name, saldo=saldo)
+        return render_template('home.html', username=user_name, saldo_conta=saldo_conta_value)
     else:
         return redirect(url_for('login'))
 
@@ -434,8 +429,7 @@ def logout():
 # ============================== REGISTER ===============================
 
 @app.route('/registrar', methods=['GET', 'POST'])
-def register(): 
-    print(request.form)  # Imprimir os dados recebidos
+def register():
     msg = ''
     if request.method == 'POST' and 'nome' in request.form and 'password' in request.form and 'email' in request.form and 'telefone' in request.form and 'repass' in request.form:
         
@@ -460,7 +454,6 @@ def register():
         else:
             try:
                 cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
-                print("Cursor criado com sucesso!") 
                 cursor.execute('SELECT * FROM jv_user WHERE email_user = %s', (email,))
                 account = cursor.fetchone()
 
@@ -468,19 +461,17 @@ def register():
                     msg = 'Este email já está cadastrado!'
                 else:
                     hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
-                    try:
-                        print("INSERT query:", 'INSERT INTO jv_user (nome_user, senha_user, email_user, tel_user) VALUES (%s, %s, %s, %s)' % (nome, hashed_password, email, telefone))  # Debugging statement
-                        cursor.execute('INSERT INTO jv_user (nome_user, senha_user, email_user, tel_user) VALUES (%s, %s, %s, %s)', (nome, hashed_password, email, telefone))
-                        mysql.connection.commit()
-                        msg = 'Registro efetuado com sucesso!'
-                        return redirect(url_for('login')) 
-                    except Exception as e:
-                        print("Erro ao inserir dados:", e)
+                    cursor.execute('INSERT INTO jv_user (nome_user, senha_user, email_user, tel_user) VALUES (%s, %s, %s, %s)', (nome, hashed_password, email, telefone))
+                    mysql.connection.commit()
+                    flash('Registro efetuado com sucesso! Faça login para continuar.', 'success')
+                    return render_template('register.html', show_modal=True)
             except Exception as e:
-                print("Erro ao executar cursor:", e)
+                flash(f'Ocorreu um erro ao registrar: {str(e)}', 'error')
     elif request.method == 'POST':
         msg = 'Por Favor preencha o Formulario!'
-    return render_template('register.html', msg=msg)
+        flash(msg, 'error')
+
+    return render_template('register.html', msg=msg, show_modal=False)
 
 # ============================== RECEITAS E DESPESAS ===============================
 @app.route('/adicionar_receita', methods=['POST'])
@@ -744,7 +735,12 @@ def processar_pergunta():
                 WHERE categoria = %s AND id = %s
             """, (categoria, session['id']))
             resultado = cursor.fetchone()
-            resposta = f"O gasto total na categoria '{categoria}' é R$ {resultado['total']:.2f}" if resultado['total'] else "Nenhum gasto encontrado nesta categoria."
+            total = resultado['total'] if resultado['total'] else 0.0
+            
+            return jsonify({
+                'resposta': f"O gasto total na categoria '{categoria}' é R$ {total:.2f}",
+                'grafico': None  # Nenhum gráfico necessário
+            })
 
         elif "receita total do mês passado" in pergunta:
             cursor.execute("""
@@ -753,7 +749,12 @@ def processar_pergunta():
                 WHERE MONTH(data_rec) = MONTH(CURRENT_DATE - INTERVAL 1 MONTH) AND id = %s
             """, (session['id'],))
             resultado = cursor.fetchone()
-            resposta = f"A receita total do mês passado é R$ {resultado['total']:.2f}" if resultado['total'] else "Nenhuma receita encontrada para o mês passado."
+            total = resultado['total'] if resultado['total'] else 0.0
+
+            return jsonify({
+                'resposta': f"A receita total do mês passado foi R$ {total:.2f}",
+                'grafico': None  # Nenhum gráfico necessário
+            })
 
         elif "despesas do último ano" in pergunta:
             cursor.execute("""
@@ -762,31 +763,251 @@ def processar_pergunta():
                 WHERE YEAR(data_des) = YEAR(CURRENT_DATE - INTERVAL 1 YEAR) AND id = %s
             """, (session['id'],))
             resultado = cursor.fetchone()
-            resposta = f"As despesas totais do último ano são R$ {resultado['total']:.2f}" if resultado['total'] else "Nenhuma despesa encontrada para o último ano."
+            total = resultado['total'] if resultado['total'] else 0.0
 
-        elif "saldo atual" in pergunta:
+            return jsonify({
+                'resposta': f"As despesas do último ano foram R$ {total:.2f}",
+                'grafico': None  # Nenhum gráfico necessário
+            })
+
+        elif "despesas do último mês" in pergunta:
             cursor.execute("""
-                SELECT (SELECT SUM(valor_rec) FROM jv_receitas WHERE id = %s) - (SELECT SUM(valor_des) FROM jv_despesas WHERE id = %s) as saldo
-            """, (session['id'], session['id']))
-            resultado = cursor.fetchone()
+                SELECT categoria, SUM(valor_des) as total
+                FROM jv_despesas
+                WHERE MONTH(data_des) = MONTH(CURRENT_DATE - INTERVAL 1 MONTH) AND id = %s
+                GROUP BY categoria
+            """, (session['id'],))
+            resultados = cursor.fetchall()
             
-            # Verifica se resultado['saldo'] é None antes de formatar
-            saldo = resultado['saldo'] if resultado['saldo'] is not None else 0.0
-            resposta = f"O saldo atual é R$ {saldo:.2f}"
+            categorias = [row['categoria'] for row in resultados]
+            valores = [row['total'] for row in resultados]
+
+            return jsonify({
+                'resposta': "Gráfico gerado com as despesas do último mês por categoria.",
+                'grafico': {
+                    'x': categorias,
+                    'y': valores,
+                    'type': 'bar',
+                    'title': 'Despesas do Último Mês por Categoria',
+                    'marker': { 'color': 'orange' }
+                }
+            })
+
+        elif "gasto mensal por categoria" in pergunta:
+            cursor.execute("""
+                SELECT categoria, SUM(valor_des) as total
+                FROM jv_despesas
+                WHERE id = %s AND MONTH(data_des) = MONTH(CURRENT_DATE)
+                GROUP BY categoria
+            """, (session['id'],))
+            resultados = cursor.fetchall()
+            
+            categorias = [row['categoria'] for row in resultados]
+            valores = [row['total'] for row in resultados]
+
+            return jsonify({
+                'resposta': "Gráfico gerado com base nos gastos mensais por categoria.",
+                'grafico': {
+                    'x': categorias,
+                    'y': valores,
+                    'type': 'bar',
+                    'title': 'Gastos Mensais por Categoria',
+                    'marker': { 'color': 'purple' }
+                }
+            })
+
+        elif "maiores despesas" in pergunta:
+            cursor.execute("""
+                SELECT descricao_des, valor_des
+                FROM jv_despesas
+                WHERE id = %s
+                ORDER BY valor_des DESC
+                LIMIT 5
+            """, (session['id'],))
+            resultados = cursor.fetchall()
+
+            descricoes = [row['descricao_des'] for row in resultados]
+            valores = [row['valor_des'] for row in resultados]
+
+            return jsonify({
+                'resposta': "Gráfico das maiores despesas gerado com sucesso.",
+                'grafico': {
+                    'x': descricoes,
+                    'y': valores,
+                    'type': 'bar',
+                    'title': 'Maiores Despesas',
+                    'marker': { 'color': 'red' }
+                }
+            })
+        elif "maiores receitas" in pergunta:
+            cursor.execute("""
+                SELECT descricao_rec, valor_rec
+                FROM jv_receitas
+                WHERE id = %s
+                ORDER BY valor_rec DESC
+                LIMIT 5
+            """, (session['id'],))
+            resultados = cursor.fetchall()
+
+            descricoes = [row['descricao_rec'] for row in resultados]
+            valores = [row['valor_rec'] for row in resultados]
+
+            return jsonify({
+                'resposta': "Gráfico das maiores receitas gerado com sucesso.",
+                'grafico': {
+                    'x': descricoes,
+                    'y': valores,
+                    'type': 'bar',
+                    'title': 'Maiores Receitas',
+                    'marker': { 'color': 'green' }
+                }
+            })
+        
+        elif "previsão de gastos para os próximos 30 dias" in pergunta:
+            # Consultar as despesas dos últimos 12 meses
+            cursor.execute("""
+                SELECT SUM(valor_des) as total, data_des
+                FROM jv_despesas
+                WHERE id = %s AND data_des > DATE_SUB(CURRENT_DATE, INTERVAL 12 MONTH)
+                GROUP BY data_des
+                ORDER BY data_des ASC
+            """, (session['id'],))
+            resultados = cursor.fetchall()
+
+            if not resultados:
+                return jsonify({'resposta': "Não há dados suficientes para previsão.", 'grafico': None})
+
+            # Criar DataFrame com as despesas diárias
+            data = []
+            for resultado in resultados:
+                data.append({
+                    'ds': resultado['data_des'],  # Data do gasto
+                    'y': float(resultado['total'])  # Valor do gasto (convertendo para float)
+                })
+            df = pd.DataFrame(data)
+
+            # Ajustar o modelo Prophet
+            model = Prophet(daily_seasonality=True)  # Ativamos a sazonalidade diária
+            model.fit(df)
+
+            # Criar a previsão para os próximos 30 dias
+            future = model.make_future_dataframe(periods=30)
+            forecast = model.predict(future)
+
+            # Filtrar previsão para os próximos 30 dias
+            forecast_next_30 = forecast.tail(30)
+
+            # Criando o gráfico com os dados históricos e a previsão
+            fig = go.Figure()
+
+            # Plotando os dados históricos
+            fig.add_trace(go.Scatter(
+                x=df['ds'], 
+                y=df['y'], 
+                mode='lines', 
+                name='Gastos Históricos', 
+                line=dict(color='blue')
+            ))
+
+            # Plotando a previsão
+            fig.add_trace(go.Scatter(
+                x=forecast_next_30['ds'], 
+                y=forecast_next_30['yhat'], 
+                mode='lines+markers', 
+                name='Previsão (30 dias)', 
+                line=dict(color='orange')
+            ))
+
+            # Adicionando o título e rótulos
+            fig.update_layout(
+                title="Previsão de Gastos para os Próximos 30 Dias",
+                xaxis_title="Dias",
+                yaxis_title="Valor (R$)",
+                yaxis=dict(tickformat="R$,.2f"),
+                template="plotly_dark"
+            )
+
+            # Convertendo o gráfico para JSON para ser renderizado no frontend
+            grafico_previsao = {
+                'x': forecast_next_30['ds'].dt.strftime('%Y-%m-%d').tolist(),
+                'y': forecast_next_30['yhat'].tolist(),
+                'type': 'scatter',
+                'title': "Previsão de Gastos para os Próximos 30 Dias"
+            }
+
+            return jsonify({
+                'resposta': "Previsão de gastos para os próximos 30 dias gerada com sucesso.",
+                'grafico': grafico_previsao
+            })
+        
+        elif "evolução do saldo na última semana" in pergunta:
+            # Consultar receitas por dia da última semana
+            cursor.execute("""
+                SELECT DATE(data_rec) as data, SUM(valor_rec) as total_receitas
+                FROM jv_receitas
+                WHERE id = %s AND data_rec >= DATE_SUB(CURRENT_DATE, INTERVAL 7 DAY)
+                GROUP BY DATE(data_rec)
+                ORDER BY DATE(data_rec) ASC
+            """, (session['id'],))
+            receitas = cursor.fetchall()
+
+            # Consultar despesas por dia da última semana
+            cursor.execute("""
+                SELECT DATE(data_des) as data, SUM(valor_des) as total_despesas
+                FROM jv_despesas
+                WHERE id = %s AND data_des >= DATE_SUB(CURRENT_DATE, INTERVAL 7 DAY)
+                GROUP BY DATE(data_des)
+                ORDER BY DATE(data_des) ASC
+            """, (session['id'],))
+            despesas = cursor.fetchall()
+
+            # Verificar os dados que estamos recebendo
+            print("Receitas por dia:", receitas)
+            print("Despesas por dia:", despesas)
+
+            # Preparar os dados para o gráfico
+            receitas_dict = {str(row['data']): row['total_receitas'] for row in receitas}
+            despesas_dict = {str(row['data']): row['total_despesas'] for row in despesas}
+
+            # Gerar os dias da última semana (de segunda a domingo)
+            dias = [(datetime.now() - timedelta(days=i)).date() for i in range(6, -1, -1)]
+
+            # Calcular o balanço diário
+            balanco_diario = []
+            for dia in dias:
+                receitas_dia = float(receitas_dict.get(str(dia), 0.0))  # Convertendo para float
+                despesas_dia = float(despesas_dict.get(str(dia), 0.0))  # Convertendo para float
+                balanco_diario.append(receitas_dia - despesas_dia)
+
+            # Verificar os valores do balanço diário
+            print("Balanço diário:", balanco_diario)
+
+            dias_formatados = [dia.strftime('%d/%m') for dia in dias]
+
+            return jsonify({
+                'resposta': "Gráfico gerado com a evolução do balanço na última semana.",
+                'grafico': {
+                    'x': dias_formatados,
+                    'y': balanco_diario,
+                    'type': 'line',
+                    'title': 'Evolução do Balanço na Última Semana',
+                    'marker': {'color': 'purple'}
+                }
+            })
+            
 
         else:
-            resposta = "Desculpe, não entendi a pergunta."
+            return jsonify({'resposta': "Desculpe, não entendi a pergunta.", 'grafico': None})
 
     except Exception as e:
-        resposta = f"Ocorreu um erro ao processar a pergunta: {str(e)}"
+        return jsonify({'resposta': f"Ocorreu um erro ao processar a pergunta: {str(e)}'", 'grafico': None})
 
     finally:
         cursor.close()
 
-    return jsonify({'resposta': resposta})
 
  # ============================== EXTRATO BANCARIO ===============================
-    
+
 @app.route('/extrato')
 def extrato():
     if 'loggedin' in session and 'mfa_validated' in session and session['mfa_validated']:
@@ -1463,7 +1684,7 @@ def sync_transactions():
                     account_id = account['id']
 
                     # Buscar transações para cada account_id
-                    url_transactions = f"https://api.pluggy.ai/transactions?accountId={account_id}&from=2020-10-13&to=2024-12-30&pageSize=500&page=1"
+                    url_transactions = f"https://api.pluggy.ai/transactions?accountId={account_id}&from=2024-11-01&to=2024-12-30&pageSize=500&page=1"
                     response_transactions = requests.get(url_transactions, headers=headers)
 
                     if response_transactions.status_code == 200:

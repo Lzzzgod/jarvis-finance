@@ -68,14 +68,18 @@ document.addEventListener('DOMContentLoaded', function() {
     const respostaArea = document.getElementById("resposta-area");
     const btnPergunta = document.getElementById("btn-pergunta");
     const sugestoesContainer = document.getElementById("sugestoes");
+    const graficoContainer = document.getElementById("grafico-container"); // Contêiner do gráfico
 
     // Sugestões pré-definidas
     const sugestoes = [
         'Exiba o gasto obtido pela categoria "Transporte"',
         'Qual foi a receita total do mês passado?',
         'Mostre as despesas do último ano',
-        'Qual é o saldo atual?',
-        'Exiba o gasto obtido pela etiqueta "Conta de Luz"'
+        'Mostre as despesas do último mês',
+        'Mostre o gasto mensal por categoria',
+        'Qual é a previsão de gastos para os próximos 30 dias?',
+        'Quais sao as maiores despesas',
+        'Quais sao as maiores receitas'
     ];
 
     // Função para mostrar sugestões
@@ -122,11 +126,35 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .then(response => response.json())
         .then(data => {
-            // Exibir a resposta na área designada
-            respostaArea.innerHTML = data.resposta; // Supondo que a resposta do backend tenha a chave 'resposta'
-            inputPergunta.value = ''; // Limpa o campo de input após enviar
-            sugestoesContainer.innerHTML = ''; // Limpa as sugestões
-            sugestoesContainer.style.display = 'none'; // Oculta as sugestões
+            respostaArea.innerHTML = data.resposta; // Exibe a resposta na área
+
+            // Limpar campos de input e sugestões
+            inputPergunta.value = '';
+            sugestoesContainer.innerHTML = '';
+            sugestoesContainer.style.display = 'none';
+
+            // Verificar se o gráfico foi retornado
+            if (data.grafico) {
+                const { x, y, type, title } = data.grafico;
+
+                // Layout para o gráfico
+                const layout = {
+                    title: title,
+                    xaxis: { title: "Meses" },
+                    yaxis: { title: "Valor (R$)", tickformat: "R$,.2f" }, // Formatar os valores em R$
+                    template: "plotly_dark" // Usar tema dark
+                };
+
+                // Plotando o gráfico
+                Plotly.newPlot(graficoContainer, [{
+                    x: x,
+                    y: y,
+                    type: type,
+                    marker: { color: 'orange' } // Definindo cor do gráfico
+                }], layout);
+            } else {
+                graficoContainer.innerHTML = ''; // Limpar o gráfico caso não haja resposta gráfica
+            }
         })
         .catch(error => {
             console.error('Erro:', error);

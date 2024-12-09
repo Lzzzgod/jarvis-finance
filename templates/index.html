@@ -22,6 +22,7 @@
                     <li><a href="#testimonials">Depoimentos</a></li>
                     <li><a href="#pricing">Preços</a></li>
                     <li><a href="#contact">Contato</a></li>
+                    <li><a href="{{ url_for('roadmap') }}">Roadmap</a></li>
                 </ul>
             </nav>
             <a href="{{ url_for('login') }}" class="button login-button">Login</a>
@@ -110,7 +111,7 @@
         <div class="container">
             <h2>Comece a Usar o Jarvis Advisor</h2>
             <p>Inscreva-se agora e comece a controlar sua vida financeira de forma eficiente.</p>
-            <form action="signup.html" method="POST">
+            <form action="{{ url_for('register') }}" method="POST">
                 <input type="email" placeholder="Seu e-mail" required>
                 <button type="submit" class="button primary-button">Inscreva-se</button>
             </form>

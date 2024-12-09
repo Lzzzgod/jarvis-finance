@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Roadmap - Jarvis Advisor</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/indexstyle.css') }}">
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='img/favicon.png') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <div class="logo">
+                <a href="{{ url_for('index') }}">
+                    <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Jarvis Advisor">
+                    <h1 class="website-title">Jarvis Advisor</h1>
+                </a>
+            </div>
+            <nav class="nav">
+                <ul>
+                    <li><a href="{{ url_for('index') }}">Home</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <main class="roadmap-container">
+        <div class="container">
+            <h1>📌 Roadmap - Jarvis Advisor</h1>
+            <p>Explore o progresso das funcionalidades planejadas, em desenvolvimento e já implementadas no Jarvis Advisor.</p>
+
+            <table id="roadmapTable" class="display roadmap-table">
+                <thead>
+                    <tr>
+                        <th>Feature</th>
+                        <th>Descrição</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Compartilhamento com Família</strong></td>
+                        <td>Permitir que os usuários compartilhem informações financeiras com familiares.</td>
+                        <td><span class="status in-progress">Em Desenvolvimento</span></td>
+                    </tr>
+                    tr>
+                        <td><strong>Melhorias na esperiencia do usuario</strong></td>
+                        <td>Estamos em constante melhoria para atender melhor nossos clientes.</td>
+                        <td><span class="status in-progress">Em Desenvolvimento</span></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Social media Login</strong></td>
+                        <td>Conceder a facilidade de login com redes sociais para melhorar a experiência do nosso protagonista, voce!</td>
+                        <td><span class="status in-progress">Em Desenvolvimento</span></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Open Finance</strong></td>
+                        <td>Tenha todas suas movimentaçoes financeiras na palma da mao, sem necessidade de inserção manual das receitas e despesas</td>
+                        <td><span class="status complete">Já Implementado</span></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Dashboards</strong></td>
+                        <td>Veja relatorios e dashboards personalizados para entender melhor suas finanças</td>
+                        <td><span class="status complete">Já Implementado</span></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Metas Financeiras</strong></td>
+                        <td>Defina, acompanhe e atinja seus objetivos financeiros com gráficos e alertas personalizados.</td>
+                        <td><span class="status in-progress">Em Desenvolvimento</span></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Comunidade de Discussão e Apoio</strong></td>
+                        <td>Espaço interativo para compartilhar experiências financeiras e receber apoio.</td>
+                        <td><span class="status in-progress">Em Desenvolvimento</span></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Análise e Recomendação de Investimentos</strong></td>
+                        <td>Receba sugestões personalizadas de investimento com base no seu perfil financeiro.</td>
+                        <td><span class="status backlog">No Backlog</span></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Extrato Geral</strong></td>
+                        <td>Extraia informações financeiras de forma rápida e fácil.</td>
+                        <td><span class="status complete">Já Implementado</span></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Análise de Empréstimos</strong></td>
+                        <td>Compare opções de empréstimos e simule prazos e taxas com base no seu perfil.</td>
+                        <td><span class="status in-progress">Em Desenvolvimento</span></td>
+                    </tr>
+                    <tr>
+                        <td><strong>MFA</strong></td>
+                        <td>Segurança e robustez para proteger suas informações financeiras.</td>
+                        <td><span class="status complete">Já Implementado</span></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Classificação Automatica de Receitas e Despesas</strong></td>
+                        <td>Nosso querido Jarvis, a IA da Jarvis Finance que classifica automaticamente as suas receitas e despesas.</td>
+                        <td><span class="status complete">Já Implementado</span></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Pagamentos de Contas Automatizados</strong></td>
+                        <td>Automatize pagamentos recorrentes diretamente pela plataforma.</td>
+                        <td><span class="status backlog">No Backlog</span></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Análise de Comportamento Avançada</strong></td>
+                        <td>Identifique padrões de consumo e poupança com sugestões para otimizar o orçamento.</td>
+                        <td><span class="status backlog">No Backlog</span></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2024 Jarvis Advisor. Todos os direitos reservados.</p>
+        </div>
+    </footer>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+
+    <script>
+        $(document).ready(function () {
+            $('#roadmapTable').DataTable({
+                language: {
+                    search: "Pesquisar:",
+                    lengthMenu: "Exibir _MENU_ itens",
+                    info: "Exibindo _START_ a _END_ de _TOTAL_ itens",
+                    paginate: {
+                        first: "Primeiro",
+                        last: "Último",
+                        next: "Próximo",
+                        previous: "Anterior"
+                    },
+                    zeroRecords: "Nenhum item encontrado.",
+                },
+                order: [[2, 'asc']], 
+                pageLength: 10 
+            });
+        });
+    </script>
+</body>
+</html>

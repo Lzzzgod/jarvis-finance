@@ -391,6 +391,71 @@ a {
   color: #ddd;
 }
 
+.roadmap-container {
+  padding: 40px 20px;
+  background-color: #f9f9f9;
+}
+
+.roadmap-container h1 {
+  text-align: center;
+  margin-bottom: 20px;
+  font-size: 2em;
+  color: #333;
+}
+
+.roadmap-container p {
+  text-align: center;
+  margin-bottom: 30px;
+  font-size: 1.2em;
+  color: #666;
+}
+
+.roadmap-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0 auto;
+  background: #fff;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.roadmap-table th, .roadmap-table td {
+  text-align: left;
+  padding: 15px;
+  border-bottom: 1px solid #ddd;
+}
+
+.roadmap-table th {
+  background-color: #f2f2f2;
+  color: #333;
+  font-weight: 600;
+}
+
+.roadmap-table tr:hover {
+  background-color: #f9f9f9;
+}
+
+.status {
+  font-weight: bold;
+  padding: 5px 10px;
+  border-radius: 4px;
+  display: inline-block;
+}
+
+.status.in-progress {
+  background-color: #ffc107;
+  color: #fff;
+}
+
+.status.backlog {
+  background-color: #6c757d;
+  color: #fff;
+}
+
+.status.complete {
+  background-color: #28a745;
+  color: #fff;
+}
+
 /* Responsive Styles */
 @media (max-width: 992px) {
   .header .nav ul {

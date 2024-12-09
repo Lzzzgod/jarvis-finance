@@ -19,8 +19,8 @@
                         <div class="balance-card">
                           <div>
                             <h3 class="text">👋 Olá, {{ username }}!</h3>
-                            <p>Saldo:   <span style="color: {% if saldo < 0 %}red{% else %}green{% endif %};">
-                              {{ saldo | formata_moeda }}
+                            <p>Saldo:   <span style="color: {% if saldo_conta < 0 %}red{% else %}green{% endif %};">
+                              {{ saldo_conta | formata_moeda }}
                           </span>
                           </div>
                           <i class="fas fa-ellipsis-v"></i>
@@ -106,18 +106,25 @@
                           <div id="resposta-area" class="resposta-area"></div> <!-- Área para exibir a resposta -->
                       </div>
                       <div class="chat-box">
-                          <i class="fas fa-question-circle"></i>
-                          <div class="input-container">
-                              <input id="input-pergunta" placeholder='Pergunte ao JARVIS: Ex. Exiba o gasto obtido pela etiqueta "Conta de Luz"?' type="text"/>
-                              <div id="sugestoes" class="sugestoes"></div> <!-- Contêiner para sugestões -->
-                          </div>
-                          <button id="btn-pergunta">
-                              <i class="fas fa-check"></i>
-                          </button>
-                      </div>
+                        <i class="fas fa-question-circle"></i>
+                        <div class="input-container">
+                            <input id="input-pergunta" placeholder='Pergunte ao JARVIS: Ex. Exiba o gasto obtido pela etiqueta "Conta de Luz"?' type="text"/>
+                            <div id="sugestoes" class="sugestoes"></div>
+                        </div>
+                        <button id="btn-pergunta">
+                            <i class="fas fa-check"></i>
+                        </button>
+                    </div>
+                    
+                    <!-- Contêiner para exibir respostas -->
+                    <div id="resposta-area"></div>
+                    
+                    <!-- Novo contêiner para gráficos -->
+                    <div id="grafico-container" style="width: 100%; height: 400px; margin-top: 20px;"></div>
                      </div>
             </section> 
             <script type="text/javascript" src="{{ url_for('static', filename='js/hmscripts.js') }}"></script>
+            <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
         {% endblock %}
     </body>
 </html>

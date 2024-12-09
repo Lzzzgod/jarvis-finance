@@ -863,8 +863,9 @@ cursor: pointer;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
+
 .connect-button {
-  background-color: #3217D1;
+  background-color: #3217d1;
   color: white;
   border: none;
   padding: 12px 20px;
